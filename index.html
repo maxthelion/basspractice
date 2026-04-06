@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bass Note Detector</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --fg: #f2f2f2;
+    --muted: #888;
+    --accent: #ffb454;
+    --good: #7bd88f;
+    --bad: #ff6e6e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    height: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin: 0 0 2rem;
+  }
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  select, button {
+    background: #1c1c20;
+    color: var(--fg);
+    border: 1px solid #2c2c32;
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  button:hover, select:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 260px;
+  }
+  .note {
+    font-size: 10rem;
+    font-weight: 200;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    font-variant-numeric: tabular-nums;
+  }
+  .note .octave { font-size: 4rem; color: var(--muted); vertical-align: super; }
+  .freq {
+    font-size: 1.1rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .meter {
+    width: 320px;
+    height: 36px;
+    background: #1c1c20;
+    border-radius: 18px;
+    position: relative;
+    margin-top: 1rem;
+    overflow: hidden;
+  }
+  .meter .center {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #2c2c32;
+  }
+  .meter .needle {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    width: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: left 0.05s linear, background 0.1s linear;
+  }
+  .meter.in-tune .needle { background: var(--good); }
+  .cents {
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: 0.3rem;
+  }
+  .status {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-height: 1.2em;
+  }
+
+  .practice-controls {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .target {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 2.5rem;
+    margin-bottom: 1.5rem;
+    background: #1c1c20;
+    border: 1px solid #2c2c32;
+    border-radius: 12px;
+    min-width: 260px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .target[hidden] { display: none; }
+  .target-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .target-note {
+    font-size: 4.5rem;
+    font-weight: 300;
+    line-height: 1.1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .target-interval {
+    font-size: 0.95rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    min-height: 1.2em;
+  }
+  .target.hit {
+    background: var(--good);
+    border-color: var(--good);
+  }
+  .target.hit .target-label,
+  .target.hit .target-note,
+  .target.hit .target-interval { color: #0e0e10; }
+
+  .fretboard-wrapper {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 1.5rem;
+  }
+  .fretboard-wrapper[hidden] { display: none; }
+  .fretboard-options {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .fretboard-options label {
+    cursor: pointer;
+    user-select: none;
+  }
+  .fretboard-options input {
+    vertical-align: middle;
+    margin-right: 0.3rem;
+  }
+  .fretboard { overflow-x: auto; }
+  .fretboard svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+</style>
+</head>
+<body>
+  <h1>Bass Note Detector</h1>
+
+  <div class="controls">
+    <select id="device"><option>Loading devices…</option></select>
+    <button id="start">Start</button>
+  </div>
+
+  <div class="practice-controls">
+    <select id="root"></select>
+    <select id="scale"></select>
+    <button id="practice">Practice</button>
+    <button id="fretboard-btn" class="active">Fretboard</button>
+  </div>
+
+  <div class="fretboard-wrapper" id="fretboard-wrapper">
+    <div class="fretboard-options">
+      <label><input type="checkbox" id="playing-toggle" checked> Show played note</label>
+      <label><input type="checkbox" id="highlight-toggle" checked> Highlight target</label>
+    </div>
+    <div class="fretboard" id="fretboard"></div>
+  </div>
+
+  <div class="target" id="target" hidden>
+    <div class="target-label">Play</div>
+    <div class="target-note" id="target-note">—</div>
+    <div class="target-interval" id="target-interval">&nbsp;</div>
+  </div>
+
+  <div class="display">
+    <div class="note" id="note">—</div>
+    <div class="freq" id="freq">&nbsp;</div>
+    <div class="meter" id="meter">
+      <div class="center"></div>
+      <div class="needle" id="needle"></div>
+    </div>
+    <div class="cents" id="cents">&nbsp;</div>
+  </div>
+
+  <div class="status" id="status">Click Start and grant mic access.</div>
+
+<script>
+(() => {
+  const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  // Scale intervals (semitones from root).
+  const SCALES = {
+    "Major":            [0,2,4,5,7,9,11],
+    "Natural Minor":    [0,2,3,5,7,8,10],
+    "Harmonic Minor":   [0,2,3,5,7,8,11],
+    "Major Pentatonic": [0,2,4,7,9],
+    "Minor Pentatonic": [0,3,5,7,10],
+    "Blues":            [0,3,5,6,7,10],
+    "Dorian":           [0,2,3,5,7,9,10],
+    "Mixolydian":       [0,2,4,5,7,9,10],
+    "Chromatic":        [0,1,2,3,4,5,6,7,8,9,10,11],
+  };
+
+  // Degree names relative to root.
+  const INTERVAL_NAMES = [
+    "R", "b2", "2", "b3", "3", "4", "b5", "5", "b6", "6", "b7", "7"
+  ];
+
+  const deviceSel   = document.getElementById("device");
+  const startBtn    = document.getElementById("start");
+  const rootSel     = document.getElementById("root");
+  const scaleSel    = document.getElementById("scale");
+  const practiceBtn = document.getElementById("practice");
+  const fretboardBtn     = document.getElementById("fretboard-btn");
+  const fretboardWrap    = document.getElementById("fretboard-wrapper");
+  const fretboardEl      = document.getElementById("fretboard");
+  const highlightToggle  = document.getElementById("highlight-toggle");
+  const playingToggle    = document.getElementById("playing-toggle");
+  const targetEl    = document.getElementById("target");
+  const targetNoteEl     = document.getElementById("target-note");
+  const targetIntervalEl = document.getElementById("target-interval");
+  const noteEl    = document.getElementById("note");
+  const freqEl    = document.getElementById("freq");
+  const centsEl   = document.getElementById("cents");
+  const needleEl  = document.getElementById("needle");
+  const meterEl   = document.getElementById("meter");
+  const statusEl  = document.getElementById("status");
+
+  // Populate root + scale selects.
+  NOTE_NAMES.forEach(n => {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    rootSel.appendChild(o);
+  });
+  rootSel.value = "C";
+  Object.keys(SCALES).forEach(s => {
+    const o = document.createElement("option");
+    o.value = s; o.textContent = s;
+    scaleSel.appendChild(o);
+  });
+  scaleSel.value = "Major";
+
+  let audioCtx, analyser, source, stream, rafId, running = false;
+  let buf; // Float32 time-domain buffer
+
+  // Practice state.
+  let practicing = false;
+  let targetPc = null;        // pitch class 0-11 we're waiting for
+  let targetInterval = null;  // semitones from root
+  let prevInterval = null;    // to avoid immediate repeats
+  let matchStartTs = 0;       // when the current hold started
+  const HOLD_MS = 200;        // how long the correct note must be held
+
+  // Fretboard state.
+  let showHighlight = true;    // target highlight
+  let showPlayingNote = true;  // live played-note highlight
+  let lastPlayedMidi = null;   // last MIDI drawn on the playing layer
+
+  async function listDevices() {
+    try {
+      // Need a temporary permission grant to reveal device labels.
+      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tmp.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      statusEl.textContent = "Mic permission denied — device list will be unlabeled.";
+    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const inputs = devices.filter(d => d.kind === "audioinput");
+    deviceSel.innerHTML = "";
+    inputs.forEach((d, i) => {
+      const opt = document.createElement("option");
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Audio input ${i + 1}`;
+      deviceSel.appendChild(opt);
+    });
+    if (!inputs.length) {
+      const opt = document.createElement("option");
+      opt.textContent = "No audio inputs found";
+      deviceSel.appendChild(opt);
+    }
+  }
+
+  async function start() {
+    if (running) { stop(); return; }
+    try {
+      const deviceId = deviceSel.value;
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1,
+        },
+      });
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096; // ~85ms at 48kHz — plenty for bass fundamental
+      buf = new Float32Array(analyser.fftSize);
+      source.connect(analyser);
+
+      running = true;
+      startBtn.textContent = "Stop";
+      startBtn.classList.add("active");
+      statusEl.textContent = `Sample rate: ${audioCtx.sampleRate} Hz`;
+      loop();
+    } catch (e) {
+      statusEl.textContent = "Error: " + e.message;
+    }
+  }
+
+  function stop() {
+    running = false;
+    if (practicing) stopPractice();
+    updatePlayingHighlight(null);
+    cancelAnimationFrame(rafId);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (audioCtx) audioCtx.close();
+    audioCtx = stream = source = analyser = null;
+    startBtn.textContent = "Start";
+    startBtn.classList.remove("active");
+    noteEl.textContent = "—";
+    freqEl.innerHTML = "&nbsp;";
+    centsEl.innerHTML = "&nbsp;";
+    needleEl.style.left = "50%";
+    meterEl.classList.remove("in-tune");
+  }
+
+  // Autocorrelation-based pitch detection.
+  // Adapted from the well-known cwilso/PitchDetect approach — robust for
+  // monophonic bass-range signals and cheap enough for realtime.
+  function autoCorrelate(buf, sampleRate) {
+    const SIZE = buf.length;
+
+    // RMS gate — ignore silence / hum.
+    let rms = 0;
+    for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 0.01) return -1;
+
+    // Trim leading/trailing low-amplitude samples.
+    const threshold = 0.2;
+    let r1 = 0, r2 = SIZE - 1;
+    for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < threshold) { r1 = i; break; }
+    for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < threshold) { r2 = SIZE - i; break; }
+    const trimmed = buf.slice(r1, r2);
+    const N = trimmed.length;
+
+    // Autocorrelation.
+    const c = new Array(N).fill(0);
+    for (let lag = 0; lag < N; lag++) {
+      for (let i = 0; i < N - lag; i++) {
+        c[lag] += trimmed[i] * trimmed[i + lag];
+      }
+    }
+
+    // Find first valley then first peak after it.
+    let d = 0;
+    while (d < N - 1 && c[d] > c[d + 1]) d++;
+    let maxVal = -1, maxPos = -1;
+    for (let i = d; i < N; i++) {
+      if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
+    }
+    let T0 = maxPos;
+    if (T0 <= 0) return -1;
+
+    // Parabolic interpolation around the peak for sub-sample accuracy.
+    const x1 = c[T0 - 1] || 0;
+    const x2 = c[T0];
+    const x3 = c[T0 + 1] || 0;
+    const a = (x1 + x3 - 2 * x2) / 2;
+    const b = (x3 - x1) / 2;
+    if (a) T0 = T0 - b / (2 * a);
+
+    return sampleRate / T0;
+  }
+
+  function freqToNote(freq) {
+    // A4 = 440 Hz = MIDI 69
+    const midi = 69 + 12 * Math.log2(freq / 440);
+    const rounded = Math.round(midi);
+    const name = NOTE_NAMES[((rounded % 12) + 12) % 12];
+    const octave = Math.floor(rounded / 12) - 1;
+    const cents = Math.floor((midi - rounded) * 100);
+    return { name, octave, cents, midi: rounded };
+  }
+
+  // --- Practice sequencer ---
+
+  function pickNextTarget() {
+    const rootPc = NOTE_NAMES.indexOf(rootSel.value);
+    const intervals = SCALES[scaleSel.value];
+    // Pick a random interval, avoiding an immediate repeat (if possible).
+    let interval;
+    do {
+      interval = intervals[Math.floor(Math.random() * intervals.length)];
+    } while (intervals.length > 1 && interval === prevInterval);
+    prevInterval = interval;
+
+    targetInterval = interval;
+    targetPc = (rootPc + interval) % 12;
+    targetNoteEl.textContent = NOTE_NAMES[targetPc];
+    targetIntervalEl.textContent = INTERVAL_NAMES[interval] + " of " + rootSel.value;
+    renderFretboard();
+  }
+
+  function startPractice() {
+    if (!running) {
+      statusEl.textContent = "Start the detector first.";
+      return;
+    }
+    practicing = true;
+    prevInterval = null;
+    matchStartTs = 0;
+    targetEl.hidden = false;
+    practiceBtn.textContent = "Stop Practice";
+    practiceBtn.classList.add("active");
+    pickNextTarget();
+  }
+
+  function stopPractice() {
+    practicing = false;
+    targetEl.hidden = true;
+    targetEl.classList.remove("hit");
+    practiceBtn.textContent = "Practice";
+    practiceBtn.classList.remove("active");
+    targetPc = null;
+    renderFretboard();
+  }
+
+  function flashHit() {
+    targetEl.classList.add("hit");
+    setTimeout(() => targetEl.classList.remove("hit"), 180);
+  }
+
+  // --- Fretboard rendering ---
+
+  // 4-string bass, standard tuning. Top row = high G, bottom row = low E
+  // (so pitch ascends upward visually — matches how the bass looks when
+  // you're playing it).
+  const TUNING = [
+    { name: "G", midi: 43 },
+    { name: "D", midi: 38 },
+    { name: "A", midi: 33 },
+    { name: "E", midi: 28 },
+  ];
+  const FRET_COUNT = 12;
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  // Layout constants — shared between renderFretboard and updatePlayingHighlight.
+  const NUT_X = 56;
+  const FRET_W = 48;
+  const STRING_SPACING = 38;
+  const PAD_TOP = 20;
+
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  function renderFretboard() {
+    if (fretboardWrap.hidden) return;
+    fretboardEl.innerHTML = "";
+
+    const W = NUT_X + FRET_COUNT * FRET_W + 16;
+    const H = PAD_TOP + (TUNING.length - 1) * STRING_SPACING + 44;
+
+    const svg = svgEl("svg", {
+      viewBox: `0 0 ${W} ${H}`,
+      width: W,
+      height: H,
+      "font-family": "-apple-system, BlinkMacSystemFont, sans-serif",
+    });
+
+    // Dark fretboard panel.
+    svg.appendChild(svgEl("rect", {
+      x: NUT_X, y: PAD_TOP - 10,
+      width: FRET_COUNT * FRET_W,
+      height: (TUNING.length - 1) * STRING_SPACING + 20,
+      fill: "#1c1c20", rx: 4,
+    }));
+
+    // Inlay dots (behind strings) at 3, 5, 7, 9, double at 12.
+    const midY = PAD_TOP + ((TUNING.length - 1) * STRING_SPACING) / 2;
+    [3, 5, 7, 9].forEach(f => {
+      svg.appendChild(svgEl("circle", {
+        cx: NUT_X + (f - 0.5) * FRET_W, cy: midY, r: 5, fill: "#2c2c32",
+      }));
+    });
+    [midY - 14, midY + 14].forEach(cy => {
+      svg.appendChild(svgEl("circle", {
+        cx: NUT_X + (12 - 0.5) * FRET_W, cy, r: 5, fill: "#2c2c32",
+      }));
+    });
+
+    // Fret lines (nut is thick + white).
+    for (let f = 0; f <= FRET_COUNT; f++) {
+      svg.appendChild(svgEl("line", {
+        x1: NUT_X + f * FRET_W, x2: NUT_X + f * FRET_W,
+        y1: PAD_TOP, y2: PAD_TOP + (TUNING.length - 1) * STRING_SPACING,
+        stroke: f === 0 ? "#f2f2f2" : "#3c3c42",
+        "stroke-width": f === 0 ? 4 : 1.5,
+      }));
+    }
+
+    // Fret number labels below the conventional marker frets.
+    [3, 5, 7, 9, 12].forEach(f => {
+      const t = svgEl("text", {
+        x: NUT_X + (f - 0.5) * FRET_W,
+        y: H - 10,
+        fill: "#666",
+        "font-size": 11,
+        "text-anchor": "middle",
+      });
+      t.textContent = f;
+      svg.appendChild(t);
+    });
+
+    // Compute scale pitch classes.
+    const rootPc = NOTE_NAMES.indexOf(rootSel.value);
+    const intervals = SCALES[scaleSel.value];
+    const scalePcs = new Set(intervals.map(i => (rootPc + i) % 12));
+
+    // Strings + note dots.
+    TUNING.forEach((string, si) => {
+      const y = PAD_TOP + si * STRING_SPACING;
+
+      // String line — slightly thicker for the lower strings.
+      svg.appendChild(svgEl("line", {
+        x1: NUT_X, x2: NUT_X + FRET_COUNT * FRET_W,
+        y1: y, y2: y,
+        stroke: "#888",
+        "stroke-width": 1 + si * 0.35,
+      }));
+
+      // String label to the left.
+      const lbl = svgEl("text", {
+        x: 18, y: y + 4,
+        fill: "#888",
+        "font-size": 13,
+        "text-anchor": "middle",
+        "font-weight": 500,
+      });
+      lbl.textContent = string.name;
+      svg.appendChild(lbl);
+
+      // Note dots for every scale pitch on this string.
+      for (let f = 0; f <= FRET_COUNT; f++) {
+        const midi = string.midi + f;
+        const pc = ((midi % 12) + 12) % 12;
+        if (!scalePcs.has(pc)) continue;
+
+        const isRoot   = pc === rootPc;
+        const isTarget = showHighlight && practicing && pc === targetPc;
+
+        // Open string notes sit just left of the nut; fretted notes
+        // center between the fret lines.
+        const cx = f === 0 ? NUT_X - 22 : NUT_X + (f - 0.5) * FRET_W;
+        const r = 13;
+
+        let fill, stroke, strokeWidth, textColor;
+        if (isTarget) {
+          fill = "#ffb454"; stroke = "#ffb454"; strokeWidth = 2; textColor = "#0e0e10";
+        } else if (isRoot) {
+          fill = "#2a2118"; stroke = "#ffb454"; strokeWidth = 2; textColor = "#ffb454";
+        } else {
+          fill = "#2c2c32"; stroke = "#555"; strokeWidth = 1; textColor = "#f2f2f2";
+        }
+
+        svg.appendChild(svgEl("circle", {
+          cx, cy: y, r, fill, stroke, "stroke-width": strokeWidth,
+        }));
+        const t = svgEl("text", {
+          x: cx, y: y + 4,
+          fill: textColor,
+          "font-size": 11,
+          "font-weight": isRoot || isTarget ? 600 : 400,
+          "text-anchor": "middle",
+        });
+        t.textContent = NOTE_NAMES[pc];
+        svg.appendChild(t);
+      }
+    });
+
+    // Overlay layer for live played-note highlights. We wipe and repopulate
+    // this instead of rebuilding the whole SVG when the detected note changes.
+    svg.appendChild(svgEl("g", { id: "playing-layer" }));
+
+    fretboardEl.appendChild(svg);
+
+    // Re-draw any current playing highlight onto the fresh SVG.
+    const wasPlaying = lastPlayedMidi;
+    lastPlayedMidi = null;
+    if (wasPlaying != null) updatePlayingHighlight(wasPlaying);
+  }
+
+  // Highlights every fretboard position where the given MIDI note can be
+  // played. `midi` may be null to clear. Called from the audio loop — so it
+  // short-circuits when the note hasn't changed since last call.
+  function updatePlayingHighlight(midi) {
+    if (fretboardWrap.hidden) return;
+    if (midi === lastPlayedMidi) return;
+    lastPlayedMidi = midi;
+
+    const layer = fretboardEl.querySelector("#playing-layer");
+    if (!layer) return;
+    layer.innerHTML = "";
+    if (midi == null || !showPlayingNote) return;
+
+    TUNING.forEach((string, si) => {
+      const fret = midi - string.midi;
+      if (fret < 0 || fret > FRET_COUNT) return;
+      const y = PAD_TOP + si * STRING_SPACING;
+      const cx = fret === 0 ? NUT_X - 22 : NUT_X + (fret - 0.5) * FRET_W;
+      layer.appendChild(svgEl("circle", {
+        cx, cy: y, r: 17,
+        fill: "none",
+        stroke: "#7bd88f",
+        "stroke-width": 3,
+        "pointer-events": "none",
+      }));
+    });
+  }
+
+  function toggleFretboard() {
+    const show = fretboardWrap.hidden; // was hidden, now showing
+    fretboardWrap.hidden = !show;
+    fretboardBtn.classList.toggle("active", show);
+    if (show) renderFretboard();
+  }
+
+  let lastNoteTs = 0;
+  function loop() {
+    if (!running) return;
+    analyser.getFloatTimeDomainData(buf);
+    const freq = autoCorrelate(buf, audioCtx.sampleRate);
+
+    if (freq > 30 && freq < 1000) {
+      const { name, octave, cents, midi } = freqToNote(freq);
+      noteEl.innerHTML = `${name}<span class="octave">${octave}</span>`;
+      freqEl.textContent = `${freq.toFixed(2)} Hz`;
+      centsEl.textContent = `${cents >= 0 ? "+" : ""}${cents} cents`;
+      // Map -50..+50 cents onto 0..100% of meter width.
+      const pct = Math.max(0, Math.min(100, 50 + cents));
+      needleEl.style.left = pct + "%";
+      meterEl.classList.toggle("in-tune", Math.abs(cents) < 5);
+      lastNoteTs = performance.now();
+      updatePlayingHighlight(midi);
+
+      // Practice match check — pitch-class match, any octave.
+      if (practicing && targetPc !== null) {
+        const playedPc = ((midi % 12) + 12) % 12;
+        if (playedPc === targetPc) {
+          if (!matchStartTs) matchStartTs = performance.now();
+          if (performance.now() - matchStartTs >= HOLD_MS) {
+            flashHit();
+            matchStartTs = 0;
+            pickNextTarget();
+          }
+        } else {
+          matchStartTs = 0;
+        }
+      }
+    } else if (performance.now() - lastNoteTs > 400) {
+      // Decay display after 400ms of silence.
+      noteEl.textContent = "—";
+      freqEl.innerHTML = "&nbsp;";
+      centsEl.innerHTML = "&nbsp;";
+      needleEl.style.left = "50%";
+      meterEl.classList.remove("in-tune");
+      updatePlayingHighlight(null);
+    }
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  startBtn.addEventListener("click", start);
+  practiceBtn.addEventListener("click", () => {
+    if (practicing) stopPractice(); else startPractice();
+  });
+  fretboardBtn.addEventListener("click", toggleFretboard);
+  highlightToggle.addEventListener("change", () => {
+    showHighlight = highlightToggle.checked;
+    renderFretboard();
+  });
+  playingToggle.addEventListener("change", () => {
+    showPlayingNote = playingToggle.checked;
+    // Force the next updatePlayingHighlight call to actually redraw.
+    const held = lastPlayedMidi;
+    lastPlayedMidi = null;
+    updatePlayingHighlight(showPlayingNote ? held : null);
+  });
+  // Re-pick / re-render when root or scale changes. If practicing,
+  // pickNextTarget handles both. Otherwise just redraw the fretboard.
+  rootSel.addEventListener("change", () => {
+    if (practicing) pickNextTarget(); else renderFretboard();
+  });
+  scaleSel.addEventListener("change", () => {
+    if (practicing) pickNextTarget(); else renderFretboard();
+  });
+  navigator.mediaDevices.addEventListener?.("devicechange", listDevices);
+  listDevices();
+  renderFretboard();
+})();
+</script>
+</body>
+</html>
