@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bass Note Detector</title>
+<title>Bass Practice</title>
 <style>
   :root {
     --bg: #0e0e10;
+    --panel: #1c1c20;
+    --panel-2: #2c2c32;
+    --border: #3c3c42;
     --fg: #f2f2f2;
     --muted: #888;
     --accent: #ffb454;
@@ -14,65 +17,663 @@
     --bad: #ff6e6e;
   }
   * { box-sizing: border-box; }
+  /* Ensure the HTML `hidden` attribute always wins over display:flex etc. */
+  [hidden] { display: none !important; }
   html, body {
     margin: 0;
     padding: 0;
     background: var(--bg);
     color: var(--fg);
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    height: 100%;
+    min-height: 100%;
   }
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-  }
-  h1 {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin: 0 0 2rem;
-  }
-  .controls {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+  body { padding: 0; }
+  h1, h2, h3 { font-weight: 500; margin: 0; }
+  em { font-style: normal; color: var(--muted); }
+
   select, button {
-    background: #1c1c20;
+    background: var(--panel);
     color: var(--fg);
-    border: 1px solid #2c2c32;
+    border: 1px solid var(--panel-2);
     border-radius: 6px;
-    padding: 0.6rem 1rem;
+    padding: 0.55rem 0.9rem;
     font-size: 0.9rem;
     font-family: inherit;
     cursor: pointer;
   }
   button:hover, select:hover { border-color: var(--accent); }
   button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  button.ghost { background: transparent; }
 
-  .display {
+  /* ================= Setup view ================= */
+  .setup-view {
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    min-height: 260px;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1rem;
   }
-  .note {
+  .setup-view h1 {
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .setup-view .lead { color: var(--muted); margin: 0; }
+  .setup-controls {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ================= App shell ================= */
+  .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.8rem 1.25rem;
+    border-bottom: 1px solid var(--panel-2);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  .brand {
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .tabs { display: flex; gap: 0.3rem; margin-left: auto; margin-right: auto; }
+  .tab {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .tab.active { color: var(--fg); background: var(--panel); }
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--panel-2);
+    color: var(--muted);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+  .icon-btn:hover { color: var(--fg); }
+
+  .app-main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 1.5rem 1rem 3rem;
+  }
+  .view { width: 100%; max-width: 1100px; display: flex; flex-direction: column; align-items: center; }
+  .view[hidden] { display: none; }
+  .view.tuner-view, .view.record-view, .view.free-play-view, .view.today-view { max-width: 760px; }
+
+  /* ================= Today view ================= */
+  .today-view { gap: 1rem; padding-top: 1.5rem; }
+  .today-header { text-align: center; }
+  .today-header h2 { font-size: 1.4rem; font-weight: 400; }
+  .today-sub { color: var(--muted); font-size: 0.85rem; margin: 0.3rem 0 0; }
+  .today-list {
+    width: 100%;
+    max-width: 520px;
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 1rem;
+  }
+  .today-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 8px;
+    margin-bottom: 0.45rem;
+  }
+  .today-list li .num {
+    font-size: 0.85rem;
+    color: var(--muted);
+    width: 1.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .today-list li .name { flex: 1; font-size: 0.9rem; }
+  .today-list li .cat { font-size: 0.7rem; color: var(--muted); }
+  .today-list li .badge {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin-left: 0.5rem;
+  }
+  .today-list li .badge.fresh { color: var(--accent); }
+  .today-actions { display: flex; gap: 0.6rem; justify-content: center; }
+  .today-hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    max-width: 480px;
+  }
+  .today-list li.done { opacity: 0.4; }
+  .today-list li.current { border-color: var(--accent); }
+
+  /* ================= Practice layout (sidebar + main) ================= */
+  .practice-layout {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .practice-sidebar {
+    flex: 0 0 240px;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 0.6rem 0.4rem 0.8rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    position: sticky;
+    top: 4rem;
+  }
+  .practice-sidebar.collapsed { display: none; }
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.2rem 0.6rem 0.5rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .icon-btn.small { width: 28px; height: 28px; font-size: 0.8rem; }
+
+  .sidebar-tree details { margin-bottom: 0.15rem; }
+  .sidebar-tree summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--fg);
+    border-radius: 5px;
+    user-select: none;
+  }
+  .sidebar-tree summary::-webkit-details-marker { display: none; }
+  .sidebar-tree summary::before { content: "▸ "; color: var(--muted); font-size: 0.75rem; }
+  .sidebar-tree details[open] summary::before { content: "▾ "; }
+  .sidebar-tree summary:hover { background: #232328; }
+  .sidebar-tree ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.1rem 0 0.3rem;
+  }
+  .sidebar-tree .tree-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.6rem 0.35rem 1.5rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    border-radius: 5px;
+    color: var(--fg);
+  }
+  .sidebar-tree .tree-item:hover { background: #232328; }
+  .sidebar-tree .tree-item.active {
+    background: #2a2118;
+    color: var(--accent);
+  }
+  .sidebar-tree .item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .sidebar-tree .item-best {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .sidebar-tree .tree-item.active .item-best { color: var(--accent); }
+
+  .practice-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .sidebar-show {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .empty-state {
+    color: var(--muted);
+    font-size: 0.95rem;
+    padding: 4rem 1rem;
+    text-align: center;
+  }
+
+  .item-pane { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .item-header { text-align: center; margin-bottom: 1rem; }
+  .item-header h2 {
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: var(--fg);
+  }
+  .item-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+    min-height: 1.2em;
+  }
+
+  .summary-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+
+  .fretboard-slot { width: 100%; display: flex; justify-content: center; }
+
+  .free-play-view .fretboard-slot { margin-top: 0.5rem; }
+
+  /* ================= Practice view ================= */
+  .practice-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+  .practice-controls:last-of-type { margin-bottom: 1.25rem; }
+
+  .num-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.7rem;
+    height: 36px;
+    border: 1px solid var(--panel-2);
+    border-radius: 6px;
+    background: var(--panel);
+    font-size: 0.85rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .num-field:hover { border-color: var(--accent); }
+  .num-field input[type="number"] {
+    background: transparent;
+    border: none;
+    color: var(--fg);
+    width: 3.2ch;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    padding: 0;
+    text-align: center;
+    -moz-appearance: textfield;
+  }
+  .num-field input[type="number"]::-webkit-outer-spin-button,
+  .num-field input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .num-field input[type="number"]:focus { outline: none; }
+  .num-field input[type="checkbox"] { margin: 0; }
+  .num-field .dash { color: var(--muted); }
+  .num-field .suffix { color: var(--muted); font-size: 0.75rem; }
+  .num-field span:not(.dash):not(.suffix) { color: var(--muted); }
+
+  .runtime { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .runtime-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 0.6rem;
+  }
+  .countdown {
+    font-size: 1.6rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+    font-weight: 300;
+    min-width: 4ch;
+  }
+  .countdown.urgent { color: var(--bad); }
+  .countdown.none { color: var(--muted); font-size: 0.9rem; }
+  .inline-stats { display: flex; gap: 1.25rem; font-size: 0.85rem; color: var(--muted); }
+  .inline-stats b { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; margin-right: 0.2rem; }
+
+  .target {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.8rem 2rem 1rem;
+    margin-bottom: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 12px;
+    min-width: 220px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .target-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .target-note {
+    font-size: 4rem;
+    font-weight: 300;
+    line-height: 1.1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .target-interval {
+    font-size: 0.9rem;
+    color: var(--muted);
+    min-height: 1.2em;
+  }
+  .target.hit { background: var(--good); border-color: var(--good); }
+  .target.hit .target-label,
+  .target.hit .target-note,
+  .target.hit .target-interval { color: #0e0e10; }
+
+  /* ================= Sequence panel ================= */
+  .sequence-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 1.5rem 1.2rem;
+    margin-bottom: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 12px;
+    min-width: 320px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .sequence-panel[hidden] { display: none; }
+  .seq-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .seq-name {
+    font-size: 1.6rem;
+    font-weight: 300;
+    color: var(--accent);
+    margin: 0.2rem 0 0.6rem;
+  }
+  .seq-progress {
+    display: flex;
+    gap: 0.35rem;
+    margin: 0.3rem 0 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 480px;
+  }
+  .seq-progress .step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: #1c1c20;
+    border: 1px solid #2c2c32;
+    font-size: 0.78rem;
+    color: #4a4a52;
+    font-variant-numeric: tabular-nums;
+  }
+  .seq-progress .step.played {
+    background: #2c2c32;
+    color: var(--fg);
+    border-color: #444;
+  }
+  .seq-progress .step.played.correct {
+    background: rgba(123, 216, 143, 0.15);
+    border-color: var(--good);
+    color: var(--good);
+  }
+  .seq-progress .step.played.wrong {
+    background: rgba(255, 110, 110, 0.15);
+    border-color: var(--bad);
+    color: var(--bad);
+  }
+  .seq-result {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    min-height: 1.2em;
+  }
+  .seq-result.perfect { color: var(--good); font-weight: 500; }
+  .seq-result.fail    { color: var(--bad); }
+  .sequence-panel.hit { background: var(--good); border-color: var(--good); }
+  .sequence-panel.hit .seq-label,
+  .sequence-panel.hit .seq-name,
+  .sequence-panel.hit .seq-result { color: #0e0e10; }
+
+  /* ================= Fretboard ================= */
+  .fretboard-wrapper { width: 100%; max-width: 720px; margin-bottom: 1rem; }
+  .fretboard-wrapper[hidden] { display: none; }
+  .fretboard-options {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .fretboard-options label { cursor: pointer; user-select: none; }
+  .fretboard-options input { vertical-align: middle; margin-right: 0.3rem; }
+  .fretboard { overflow-x: auto; }
+  .fretboard svg { display: block; max-width: 100%; height: auto; }
+
+  /* ================= Timeline ================= */
+  .timeline-wrap { width: 100%; max-width: 720px; margin-bottom: 0.5rem; }
+  .timeline-wrap[hidden] { display: none; }
+  .timeline {
+    display: block;
+    width: 100%;
+    background: var(--panel);
+    border-radius: 8px;
+  }
+
+  .minimap-wrap {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 1rem;
+  }
+  .minimap-wrap[hidden] { display: none; }
+  .minimap-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0.3rem 0 0.25rem;
+  }
+  .minimap {
+    display: block;
+    width: 100%;
+    background: var(--panel);
+    border-radius: 6px;
+  }
+
+  /* ================= Summary / history ================= */
+  .summary {
+    width: 100%;
+    max-width: 720px;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 1rem 1.25rem 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .summary[hidden] { display: none; }
+  .summary h3 {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.6rem 1rem;
+  }
+  .summary-grid .cell { display: flex; flex-direction: column; }
+  .summary-grid .cell .v {
+    font-size: 1.3rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary-grid .cell .l {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 0.15rem;
+  }
+
+  .progress {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--panel-2);
+  }
+  .progress[hidden] { display: none; }
+  .progress h4 {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin: 0 0 0.5rem;
+    font-weight: 500;
+  }
+  .progress h4 span {
+    color: var(--fg);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+  .progress-chart {
+    display: block;
+    width: 100%;
+    height: 80px;
+    background: #15151a;
+    border-radius: 4px;
+  }
+  .progress-text {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-text .up   { color: var(--bad); }
+  .progress-text .down { color: var(--good); }
+
+  .history {
+    width: 100%;
+    max-width: 720px;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+  }
+  .history summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.3rem 0;
+    outline: none;
+  }
+  .history summary::-webkit-details-marker { display: none; }
+  .history summary::before { content: "▸  "; color: var(--muted); }
+  .history[open] summary::before { content: "▾  "; }
+  .history-list { margin-top: 0.75rem; }
+  .history-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.45rem 0;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid var(--panel-2);
+  }
+  .history-row.head { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; border-top: none; }
+  .history-empty { color: var(--muted); font-size: 0.85rem; padding: 0.5rem 0; }
+
+  /* ================= Record view ================= */
+  .record-view { gap: 0.25rem; }
+  .piano-roll-wrap {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 0.75rem;
+  }
+  .piano-roll {
+    display: block;
+    width: 100%;
+    background: var(--panel);
+    border-radius: 8px;
+  }
+  .rec-indicator {
+    min-width: 12px; min-height: 12px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: transparent;
+    align-self: center;
+  }
+  .rec-indicator.on {
+    background: var(--bad);
+    box-shadow: 0 0 8px var(--bad);
+    animation: recpulse 1s infinite;
+  }
+  @keyframes recpulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  .rec-info { color: var(--muted); font-size: 0.8rem; align-self: center; }
+
+  /* ================= Tuner view ================= */
+  .tuner-view { gap: 0.6rem; padding-top: 2rem; }
+  .tuner-view .note {
     font-size: 10rem;
     font-weight: 200;
     line-height: 1;
     letter-spacing: -0.05em;
     font-variant-numeric: tabular-nums;
   }
-  .note .octave { font-size: 4rem; color: var(--muted); vertical-align: super; }
-  .freq {
+  .tuner-view .note .octave { font-size: 4rem; color: var(--muted); vertical-align: super; }
+  .tuner-view .freq {
     font-size: 1.1rem;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
@@ -80,20 +681,13 @@
   .meter {
     width: 320px;
     height: 36px;
-    background: #1c1c20;
+    background: var(--panel);
     border-radius: 18px;
     position: relative;
     margin-top: 1rem;
     overflow: hidden;
   }
-  .meter .center {
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #2c2c32;
-  }
+  .meter .center { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--panel-2); }
   .meter .needle {
     position: absolute;
     top: 4px;
@@ -106,180 +700,612 @@
     transition: left 0.05s linear, background 0.1s linear;
   }
   .meter.in-tune .needle { background: var(--good); }
-  .cents {
+  .tuner-view .cents {
     font-size: 0.9rem;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
     margin-top: 0.3rem;
   }
+
   .status {
-    margin-top: 1rem;
-    font-size: 0.85rem;
-    color: var(--muted);
-    min-height: 1.2em;
-  }
-
-  .practice-controls {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .target {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1rem 2.5rem;
-    margin-bottom: 1.5rem;
-    background: #1c1c20;
-    border: 1px solid #2c2c32;
-    border-radius: 12px;
-    min-width: 260px;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .target[hidden] { display: none; }
-  .target-label {
-    font-size: 0.7rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-  .target-note {
-    font-size: 4.5rem;
-    font-weight: 300;
-    line-height: 1.1;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-  }
-  .target-interval {
-    font-size: 0.95rem;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    min-height: 1.2em;
-  }
-  .target.hit {
-    background: var(--good);
-    border-color: var(--good);
-  }
-  .target.hit .target-label,
-  .target.hit .target-note,
-  .target.hit .target-interval { color: #0e0e10; }
-
-  .fretboard-wrapper {
-    width: 100%;
-    max-width: 720px;
-    margin-bottom: 1.5rem;
-  }
-  .fretboard-wrapper[hidden] { display: none; }
-  .fretboard-options {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-bottom: 0.4rem;
     font-size: 0.8rem;
     color: var(--muted);
-  }
-  .fretboard-options label {
-    cursor: pointer;
-    user-select: none;
-  }
-  .fretboard-options input {
-    vertical-align: middle;
-    margin-right: 0.3rem;
-  }
-  .fretboard { overflow-x: auto; }
-  .fretboard svg {
-    display: block;
-    max-width: 100%;
-    height: auto;
+    min-height: 1.2em;
+    text-align: center;
+    padding: 0.5rem 1rem 1rem;
   }
 </style>
 </head>
 <body>
-  <h1>Bass Note Detector</h1>
 
-  <div class="controls">
+<!-- ============ Setup view (first page) ============ -->
+<div class="setup-view" id="setup-view">
+  <h1>Bass Practice</h1>
+  <p class="lead">Pick your audio input and press Start.</p>
+  <div class="setup-controls">
     <select id="device"><option>Loading devices…</option></select>
     <button id="start">Start</button>
   </div>
+  <div class="status" id="setup-status">Mic permission may be requested.</div>
+</div>
 
-  <div class="practice-controls">
-    <select id="root"></select>
-    <select id="scale"></select>
-    <button id="practice">Practice</button>
-    <button id="fretboard-btn" class="active">Fretboard</button>
-  </div>
+<!-- ============ App shell (shown once running) ============ -->
+<div class="app-shell" id="app-shell" hidden>
+  <header class="app-header">
+    <div class="brand">Bass Practice</div>
+    <nav class="tabs">
+      <button class="tab active" data-view="today-view">Today</button>
+      <button class="tab" data-view="free-play-view">Free play</button>
+      <button class="tab" data-view="practice-view">Practice</button>
+      <button class="tab" data-view="record-view">Record</button>
+      <button class="tab" data-view="tuner-view">Tuner</button>
+    </nav>
+    <button class="icon-btn" id="change-input-btn" title="Change audio input">⚙</button>
+  </header>
 
-  <div class="fretboard-wrapper" id="fretboard-wrapper">
-    <div class="fretboard-options">
-      <label><input type="checkbox" id="playing-toggle" checked> Show played note</label>
-      <label><input type="checkbox" id="highlight-toggle" checked> Highlight target</label>
-    </div>
-    <div class="fretboard" id="fretboard"></div>
-  </div>
+  <main class="app-main">
+    <!-- ======= Today view ======= -->
+    <section class="view today-view" id="today-view">
+      <div class="today-header">
+        <h2>Today's session</h2>
+        <p class="today-sub" id="today-sub">&nbsp;</p>
+      </div>
+      <ol class="today-list" id="today-list"></ol>
+      <div class="today-actions">
+        <button id="today-start-btn">Start session</button>
+        <button class="ghost" id="today-shuffle-btn">Pick again</button>
+      </div>
+      <p class="today-hint">
+        Items chosen by tier first, then by where you have the most room to improve.
+      </p>
+    </section>
 
-  <div class="target" id="target" hidden>
-    <div class="target-label">Play</div>
-    <div class="target-note" id="target-note">—</div>
-    <div class="target-interval" id="target-interval">&nbsp;</div>
-  </div>
+    <!-- ======= Free play view ======= -->
+    <section class="view free-play-view" id="free-play-view" hidden>
+      <div class="practice-controls">
+        <select id="root" title="Root note"></select>
+        <select id="scale" title="Scale"></select>
+        <label class="num-field">
+          <span>Position</span>
+          <select id="position" title="Anchor fret"></select>
+        </label>
+      </div>
+      <div class="fretboard-slot" id="free-play-fretboard-slot"></div>
+    </section>
 
-  <div class="display">
-    <div class="note" id="note">—</div>
-    <div class="freq" id="freq">&nbsp;</div>
-    <div class="meter" id="meter">
-      <div class="center"></div>
-      <div class="needle" id="needle"></div>
-    </div>
-    <div class="cents" id="cents">&nbsp;</div>
-  </div>
+    <!-- ======= Practice view ======= -->
+    <section class="view practice-view" id="practice-view" hidden>
+      <div class="practice-layout">
+        <aside class="practice-sidebar" id="practice-sidebar">
+          <div class="sidebar-header">
+            <span>Practice items</span>
+            <button class="icon-btn small" id="sidebar-toggle" title="Hide sidebar">‹</button>
+          </div>
+          <div class="sidebar-tree" id="practice-tree"></div>
+        </aside>
 
-  <div class="status" id="status">Click Start and grant mic access.</div>
+        <div class="practice-main" id="practice-main">
+          <button class="icon-btn small sidebar-show" id="sidebar-show" title="Show sidebar" hidden>›</button>
+
+          <div class="empty-state" id="practice-empty">
+            <p>Pick an item from the sidebar to begin.</p>
+          </div>
+
+          <div class="item-pane" id="item-pane" hidden>
+            <div class="item-header">
+              <h2 id="item-title">—</h2>
+              <div class="item-sub" id="item-sub">&nbsp;</div>
+            </div>
+
+            <div class="practice-controls">
+              <select id="mode" title="Practice mode">
+                <option value="random">Random</option>
+                <option value="sequential">Sequential</option>
+              </select>
+              <label class="num-field">
+                <input type="checkbox" id="metronome-on">
+                <span>Metronome</span>
+                <input type="number" id="bpm" min="40" max="240" value="100" step="1">
+                <span class="suffix">BPM</span>
+              </label>
+              <select id="time-limit" title="Time limit"></select>
+              <button id="practice-btn">Practice</button>
+            </div>
+
+            <div class="runtime" id="runtime" hidden>
+              <div class="runtime-row">
+                <div class="countdown" id="countdown">—</div>
+                <div class="inline-stats">
+                  <span><b id="stat-hits">0</b><em>hits</em></span>
+                  <span><b id="stat-misses">0</b><em>misses</em></span>
+                  <span><b id="stat-avg">—</b><em>avg ms</em></span>
+                </div>
+              </div>
+              <div class="target" id="target">
+                <div class="target-label">Play</div>
+                <div class="target-note" id="target-note">—</div>
+                <div class="target-interval" id="target-interval">&nbsp;</div>
+              </div>
+
+              <div class="sequence-panel" id="sequence-panel" hidden>
+                <div class="seq-label">Play the sequence</div>
+                <div class="seq-name" id="seq-name">—</div>
+                <div class="seq-progress" id="seq-progress"></div>
+                <div class="seq-result" id="seq-result"></div>
+              </div>
+            </div>
+
+            <div class="fretboard-slot" id="practice-fretboard-slot"></div>
+
+            <div class="timeline-wrap" id="timeline-wrap" hidden>
+              <canvas class="timeline" id="timeline"></canvas>
+            </div>
+
+            <div class="minimap-wrap" id="minimap-wrap" hidden>
+              <div class="minimap-label">Session</div>
+              <canvas class="minimap" id="minimap"></canvas>
+            </div>
+
+            <div class="summary" id="summary" hidden>
+              <h3 id="summary-title">Session results</h3>
+              <div class="summary-grid" id="summary-grid"></div>
+              <div class="progress" id="progress" hidden>
+                <h4>Progress · <span id="progress-config"></span></h4>
+                <canvas class="progress-chart" id="progress-chart"></canvas>
+                <div class="progress-text" id="progress-text"></div>
+              </div>
+              <div class="summary-actions">
+                <button id="practice-again-btn">Practice again</button>
+                <button class="ghost" id="back-to-list-btn">Back to list</button>
+              </div>
+            </div>
+
+            <details class="history" id="history">
+              <summary>History for this item</summary>
+              <div class="history-list" id="history-list"></div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared fretboard wrapper. Re-parented into the active view's slot. -->
+      <div class="fretboard-wrapper" id="fretboard-wrapper">
+        <div class="fretboard-options">
+          <label><input type="checkbox" id="playing-toggle" checked> Show played note</label>
+          <label><input type="checkbox" id="highlight-toggle" checked> Highlight target</label>
+        </div>
+        <div class="fretboard" id="fretboard"></div>
+      </div>
+    </section>
+
+    <!-- ======= Record view ======= -->
+    <section class="view record-view" id="record-view" hidden>
+      <div class="practice-controls">
+        <button id="record-btn">Record</button>
+        <label class="num-field">
+          <input type="checkbox" id="rec-metronome-on">
+          <span>Metronome</span>
+          <input type="number" id="rec-bpm" min="40" max="240" value="100" step="1">
+          <span class="suffix">BPM</span>
+        </label>
+        <span class="rec-indicator" id="rec-indicator">&nbsp;</span>
+      </div>
+
+      <div class="piano-roll-wrap">
+        <canvas class="piano-roll" id="piano-roll"></canvas>
+      </div>
+
+      <div class="practice-controls">
+        <button id="play-btn">Play</button>
+        <label class="num-field">
+          <input type="checkbox" id="loop-toggle" checked>
+          <span>Loop</span>
+        </label>
+        <button id="clear-rec-btn" class="ghost">Clear</button>
+        <span class="rec-info" id="rec-info">&nbsp;</span>
+      </div>
+      <div class="practice-controls">
+        <select id="saved-recordings" title="Saved recordings"></select>
+        <button id="delete-rec-btn" class="ghost" disabled>Delete</button>
+      </div>
+    </section>
+
+    <!-- ======= Tuner view ======= -->
+    <section class="view tuner-view" id="tuner-view" hidden>
+      <div class="note" id="note">—</div>
+      <div class="freq" id="freq">&nbsp;</div>
+      <div class="meter" id="meter">
+        <div class="center"></div>
+        <div class="needle" id="needle"></div>
+      </div>
+      <div class="cents" id="cents">&nbsp;</div>
+    </section>
+  </main>
+
+  <div class="status" id="status">&nbsp;</div>
+</div>
 
 <script>
 (() => {
+  // ======================================================================
+  // Constants
+  // ======================================================================
   const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-  // Scale intervals (semitones from root).
+  // Each scale carries its own typical "box" fret span as offsets from the
+  // position anchor — chosen to fit a natural one- or two-octave fingering
+  // shape. Scales with awkward intervals (raised 6/7, the augmented 2nd in
+  // harmonic minor) need a wider stretch; pentatonics fit in a tighter window.
   const SCALES = {
-    "Major":            [0,2,4,5,7,9,11],
-    "Natural Minor":    [0,2,3,5,7,8,10],
-    "Harmonic Minor":   [0,2,3,5,7,8,11],
-    "Major Pentatonic": [0,2,4,7,9],
-    "Minor Pentatonic": [0,3,5,7,10],
-    "Blues":            [0,3,5,6,7,10],
-    "Dorian":           [0,2,3,5,7,9,10],
-    "Mixolydian":       [0,2,4,5,7,9,10],
-    "Chromatic":        [0,1,2,3,4,5,6,7,8,9,10,11],
+    "Major":            { intervals: [0,2,4,5,7,9,11],            spanLo: -1, spanHi: 3 },
+    "Natural Minor":    { intervals: [0,2,3,5,7,8,10],            spanLo: -1, spanHi: 3 },
+    "Harmonic Minor":   { intervals: [0,2,3,5,7,8,11],            spanLo: -1, spanHi: 4 },
+    "Major Pentatonic": { intervals: [0,2,4,7,9],                 spanLo: -1, spanHi: 4 },
+    "Minor Pentatonic": { intervals: [0,3,5,7,10],                spanLo:  0, spanHi: 3 },
+    "Blues":            { intervals: [0,3,5,6,7,10],              spanLo:  0, spanHi: 3 },
+    "Dorian":           { intervals: [0,2,3,5,7,9,10],            spanLo: -1, spanHi: 4 },
+    "Mixolydian":       { intervals: [0,2,4,5,7,9,10],            spanLo: -1, spanHi: 3 },
+    "Chromatic":        { intervals: [0,1,2,3,4,5,6,7,8,9,10,11], spanLo: -1, spanHi: 3 },
   };
+  const INTERVAL_NAMES = ["R","b2","2","b3","3","4","b5","5","b6","6","b7","7"];
 
-  // Degree names relative to root.
-  const INTERVAL_NAMES = [
-    "R", "b2", "2", "b3", "3", "4", "b5", "5", "b6", "6", "b7", "7"
+  // Vocabulary packs — curated, focused catalog organized into three tiers:
+  //
+  //   1. "Start here"          — the foundation. ~8 items every bassist needs.
+  //   2. "More keys & intervals" — Tier-1 skills in more keys + a few more intervals.
+  //   3. "Bass-line patterns"  — fun, musical-sounding exercises that build on Tier 1.
+  //
+  // Most packs are scale/position drills (`type` defaults to "pack"). Interval
+  // packs (`type: "interval"`) drill recall of a specific interval relative to
+  // a random starting note in `rootRange`. They have no scale or position.
+  const VOCAB_PACKS = [
+    // ============================================================
+    // Tier 1 — Start here. The foundation. Master these first.
+    // ============================================================
+    { id: "scl-c-maj", name: "C major scale", category: "Start here",
+      root: "C", scale: "Major", positionAnchor: 0, degrees: null },
+    { id: "scl-g-maj", name: "G major scale", category: "Start here",
+      root: "G", scale: "Major", positionAnchor: 0, degrees: null },
+    { id: "scl-am-pent", name: "A minor pentatonic", category: "Start here",
+      root: "A", scale: "Minor Pentatonic", positionAnchor: 0, degrees: null },
+    { id: "int-octave", name: "Octave ↑", category: "Start here",
+      type: "interval", semitones: 12, direction: "up", rootRange: [28, 43] },
+    { id: "int-p5", name: "Perfect 5th ↑", category: "Start here",
+      type: "interval", semitones: 7, direction: "up", rootRange: [28, 48] },
+    { id: "pop-c-r5", name: "C — root + 5th", category: "Start here",
+      root: "C", scale: "Major", positionAnchor: 0, degrees: [0, 7] },
+    { id: "trd-c", name: "C major triad", category: "Start here",
+      root: "C", scale: "Major", positionAnchor: 0, degrees: [0, 4, 7] },
+    { id: "trd-am", name: "A minor triad", category: "Start here",
+      root: "A", scale: "Natural Minor", positionAnchor: 0, degrees: [0, 3, 7] },
+
+    // ============================================================
+    // Sequences — play the whole thing, app verifies.
+    // ============================================================
+    { id: "seq-c-maj-asc", name: "C major scale ↑", category: "Sequences",
+      type: "sequence",
+      // C2 → C3 ascending one octave.
+      notes: [36, 38, 40, 41, 43, 45, 47, 48] },
+    { id: "seq-g-maj-asc", name: "G major scale ↑", category: "Sequences",
+      type: "sequence",
+      // G1 → G2 ascending one octave.
+      notes: [31, 33, 35, 36, 38, 40, 42, 43] },
+    { id: "seq-am-pent-asc", name: "A minor pentatonic ↑", category: "Sequences",
+      type: "sequence",
+      // A1 → A2 ascending pentatonic.
+      notes: [33, 36, 38, 40, 43, 45] },
+    { id: "seq-c-triad-asc", name: "C major triad ↑", category: "Sequences",
+      type: "sequence",
+      // C2 E2 G2 C3.
+      notes: [36, 40, 43, 48] },
+
+    // ============================================================
+    // Tier 2 — More keys & intervals. Same skills, more variety.
+    // ============================================================
+    { id: "scl-d-maj", name: "D major scale", category: "More keys & intervals",
+      root: "D", scale: "Major", positionAnchor: 0, degrees: null },
+    { id: "scl-f-maj", name: "F major scale", category: "More keys & intervals",
+      root: "F", scale: "Major", positionAnchor: 0, degrees: null },
+    { id: "scl-em-pent", name: "E minor pentatonic", category: "More keys & intervals",
+      root: "E", scale: "Minor Pentatonic", positionAnchor: 0, degrees: null },
+    { id: "pop-g-r5", name: "G — root + 5th", category: "More keys & intervals",
+      root: "G", scale: "Major", positionAnchor: 0, degrees: [0, 7] },
+    { id: "trd-g", name: "G major triad", category: "More keys & intervals",
+      root: "G", scale: "Major", positionAnchor: 0, degrees: [0, 4, 7] },
+    { id: "trd-em", name: "E minor triad", category: "More keys & intervals",
+      root: "E", scale: "Natural Minor", positionAnchor: 0, degrees: [0, 3, 7] },
+    { id: "int-m3", name: "Minor 3rd ↑", category: "More keys & intervals",
+      type: "interval", semitones: 3, direction: "up", rootRange: [28, 50] },
+    { id: "int-maj3", name: "Major 3rd ↑", category: "More keys & intervals",
+      type: "interval", semitones: 4, direction: "up", rootRange: [28, 50] },
+    { id: "int-p4", name: "Perfect 4th ↑", category: "More keys & intervals",
+      type: "interval", semitones: 5, direction: "up", rootRange: [28, 50] },
+
+    // ============================================================
+    // Tier 3 — Bass-line patterns. Fun, musical-sounding stuff.
+    // ============================================================
+    { id: "flair-walk-c6", name: "C walking line (R 3 5 6)", category: "Bass-line patterns",
+      root: "C", scale: "Major", positionAnchor: 0, degrees: [0, 4, 7, 9] },
+    { id: "flair-blues-a", name: "A blues scale box", category: "Bass-line patterns",
+      root: "A", scale: "Blues", positionAnchor: 0, degrees: null },
+    { id: "flair-e7-arp", name: "E7 arpeggio", category: "Bass-line patterns",
+      root: "E", scale: "Mixolydian", positionAnchor: 0, degrees: [0, 4, 7, 10] },
+    { id: "flair-a7-arp", name: "A7 arpeggio", category: "Bass-line patterns",
+      root: "A", scale: "Mixolydian", positionAnchor: 0, degrees: [0, 4, 7, 10] },
+    { id: "flair-boogie-e", name: "E boogie line (R 3 5 6 b7)", category: "Bass-line patterns",
+      root: "E", scale: "Mixolydian", positionAnchor: 0, degrees: [0, 4, 7, 9, 10] },
   ];
 
+  // Display order for the categories in the practice tree. Earlier =
+  // higher priority for the Today picker.
+  const PACK_CATEGORY_ORDER = [
+    "Start here",
+    "Sequences",
+    "More keys & intervals",
+    "Bass-line patterns",
+  ];
+
+  // Today session config.
+  const TODAY_ITEMS = 5;
+  const TODAY_ITEM_MS = 30 * 1000; // each item runs for this long
+
+  const TIME_LIMITS = [
+    { label: "No limit", ms: 0 },
+    { label: "30 seconds", ms: 30 * 1000 },
+    { label: "1 minute",  ms: 60 * 1000 },
+    { label: "2 minutes", ms: 120 * 1000 },
+    { label: "5 minutes", ms: 300 * 1000 },
+  ];
+
+  // 4-string bass, standard tuning. Top row = high G, bottom row = low E.
+  const TUNING = [
+    { name: "G", midi: 43 },
+    { name: "D", midi: 38 },
+    { name: "A", midi: 33 },
+    { name: "E", midi: 28 },
+  ];
+  const FRET_COUNT = 12;
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const NUT_X = 56;
+  const FRET_W = 48;
+  const STRING_SPACING = 38;
+  const PAD_TOP = 20;
+
+  // Note-event debouncer: number of consecutive frames the detector must
+  // report the same MIDI before we emit a "new note played" event.
+  const STABILITY_FRAMES = 2;
+
+  // Timeline layout (CSS pixels). Actual canvas buffer is scaled by dpr.
+  const TIMELINE_W = 720;
+  const TIMELINE_H = 90;
+  const TIMELINE_PPS = 110; // horizontal scroll speed (pixels per second)
+
+  // Minimap layout.
+  const MINIMAP_W = 720;
+  const MINIMAP_H = 44;
+  // Unlimited-duration sessions get at least this much minimap span to start.
+  const NO_LIMIT_BASE_MS = 60 * 1000;
+
+  // Progress sparkline.
+  const PROGRESS_W = 680;
+  const PROGRESS_H = 80;
+  // How many recent comparable sessions feed into the trend baseline.
+  const PROGRESS_TREND_WINDOW = 5;
+
+  // Piano roll.
+  const ROLL_W = 720;
+  const ROLL_H = 260;
+  // MIDI range shown on the piano roll (bass register + a bit of headroom).
+  const ROLL_MIDI_LOW  = 24; // C1
+  const ROLL_MIDI_HIGH = 60; // C4
+  // Default time window shown when a recording is shorter than this.
+  const ROLL_MIN_WINDOW_MS = 8 * 1000;
+
+  // Metronome scheduling lookahead (seconds ahead of audio clock).
+  const METRONOME_LOOKAHEAD = 0.15;
+  // Grace window after a beat during which a hit still counts.
+  const BEAT_HIT_GRACE_MS = 60;
+
+  // localStorage.
+  const STORAGE_KEY = "basspractice.sessions";
+  const MAX_STORED_SESSIONS = 50;
+  const STORAGE_KEY_RECORDINGS = "basspractice.recordings";
+  const MAX_STORED_RECORDINGS = 20;
+
+  // ======================================================================
+  // DOM refs
+  // ======================================================================
+
+  // Setup view
+  const setupViewEl = document.getElementById("setup-view");
   const deviceSel   = document.getElementById("device");
   const startBtn    = document.getElementById("start");
-  const rootSel     = document.getElementById("root");
-  const scaleSel    = document.getElementById("scale");
-  const practiceBtn = document.getElementById("practice");
-  const fretboardBtn     = document.getElementById("fretboard-btn");
-  const fretboardWrap    = document.getElementById("fretboard-wrapper");
-  const fretboardEl      = document.getElementById("fretboard");
-  const highlightToggle  = document.getElementById("highlight-toggle");
-  const playingToggle    = document.getElementById("playing-toggle");
-  const targetEl    = document.getElementById("target");
-  const targetNoteEl     = document.getElementById("target-note");
-  const targetIntervalEl = document.getElementById("target-interval");
-  const noteEl    = document.getElementById("note");
-  const freqEl    = document.getElementById("freq");
-  const centsEl   = document.getElementById("cents");
-  const needleEl  = document.getElementById("needle");
-  const meterEl   = document.getElementById("meter");
-  const statusEl  = document.getElementById("status");
+  const setupStatus = document.getElementById("setup-status");
 
-  // Populate root + scale selects.
+  // App shell
+  const appShell    = document.getElementById("app-shell");
+  const tabBtns     = document.querySelectorAll(".tab");
+  const changeInputBtn = document.getElementById("change-input-btn");
+
+  // Today view
+  const todayView       = document.getElementById("today-view");
+  const todayListEl     = document.getElementById("today-list");
+  const todaySubEl      = document.getElementById("today-sub");
+  const todayStartBtn   = document.getElementById("today-start-btn");
+  const todayShuffleBtn = document.getElementById("today-shuffle-btn");
+
+  // Free play view
+  const freePlayView    = document.getElementById("free-play-view");
+  const freePlayFretboardSlot = document.getElementById("free-play-fretboard-slot");
+
+  // Practice view
+  const practiceView    = document.getElementById("practice-view");
+  const practiceMain    = document.getElementById("practice-main");
+  const practiceFretboardSlot = document.getElementById("practice-fretboard-slot");
+  const practiceSidebar = document.getElementById("practice-sidebar");
+  const practiceTree    = document.getElementById("practice-tree");
+  const sidebarToggleBtn = document.getElementById("sidebar-toggle");
+  const sidebarShowBtn  = document.getElementById("sidebar-show");
+  const practiceEmpty   = document.getElementById("practice-empty");
+  const itemPane        = document.getElementById("item-pane");
+  const itemTitleEl     = document.getElementById("item-title");
+  const itemSubEl       = document.getElementById("item-sub");
+  const summaryTitleEl  = document.getElementById("summary-title");
+  const practiceAgainBtn = document.getElementById("practice-again-btn");
+  const backToListBtn   = document.getElementById("back-to-list-btn");
+  const rootSel         = document.getElementById("root");
+  const scaleSel        = document.getElementById("scale");
+  const positionSel     = document.getElementById("position");
+  const modeSel         = document.getElementById("mode");
+  const metronomeOnEl   = document.getElementById("metronome-on");
+  const bpmEl           = document.getElementById("bpm");
+  const timeLimitSel    = document.getElementById("time-limit");
+  const practiceBtn     = document.getElementById("practice-btn");
+  const runtimeEl       = document.getElementById("runtime");
+  const countdownEl     = document.getElementById("countdown");
+  const statHitsEl      = document.getElementById("stat-hits");
+  const statMissesEl    = document.getElementById("stat-misses");
+  const statAvgEl       = document.getElementById("stat-avg");
+  const targetEl        = document.getElementById("target");
+  const targetNoteEl    = document.getElementById("target-note");
+  const targetIntervalEl = document.getElementById("target-interval");
+  const sequencePanelEl = document.getElementById("sequence-panel");
+  const seqNameEl       = document.getElementById("seq-name");
+  const seqProgressEl   = document.getElementById("seq-progress");
+  const seqResultEl     = document.getElementById("seq-result");
+  const fretboardWrap   = document.getElementById("fretboard-wrapper");
+  const fretboardEl     = document.getElementById("fretboard");
+  const playingToggle   = document.getElementById("playing-toggle");
+  const highlightToggle = document.getElementById("highlight-toggle");
+  const timelineWrap    = document.getElementById("timeline-wrap");
+  const timelineEl      = document.getElementById("timeline");
+  const minimapWrap     = document.getElementById("minimap-wrap");
+  const minimapEl       = document.getElementById("minimap");
+  const summaryEl       = document.getElementById("summary");
+  const summaryGridEl   = document.getElementById("summary-grid");
+  const progressEl      = document.getElementById("progress");
+  const progressConfigEl = document.getElementById("progress-config");
+  const progressChartEl = document.getElementById("progress-chart");
+  const progressTextEl  = document.getElementById("progress-text");
+  const historyEl       = document.getElementById("history");
+  const historyListEl   = document.getElementById("history-list");
+
+  // Record view
+  const recordViewEl   = document.getElementById("record-view");
+  const recordBtn      = document.getElementById("record-btn");
+  const recMetOnEl     = document.getElementById("rec-metronome-on");
+  const recBpmEl       = document.getElementById("rec-bpm");
+  const recIndicatorEl = document.getElementById("rec-indicator");
+  const pianoRollEl    = document.getElementById("piano-roll");
+  const playBtn        = document.getElementById("play-btn");
+  const loopToggleEl   = document.getElementById("loop-toggle");
+  const clearRecBtn    = document.getElementById("clear-rec-btn");
+  const recInfoEl      = document.getElementById("rec-info");
+  const savedRecSel    = document.getElementById("saved-recordings");
+  const deleteRecBtn   = document.getElementById("delete-rec-btn");
+
+  // Tuner view
+  const tunerViewEl = document.getElementById("tuner-view");
+  const noteEl      = document.getElementById("note");
+  const freqEl      = document.getElementById("freq");
+  const centsEl     = document.getElementById("cents");
+  const needleEl    = document.getElementById("needle");
+  const meterEl     = document.getElementById("meter");
+
+  // Global status line at the bottom of the shell.
+  const statusEl = document.getElementById("status");
+
+  // ======================================================================
+  // State
+  // ======================================================================
+  let audioCtx, analyser, source, stream, rafId, running = false;
+  let buf; // time-domain float buffer
+  let lastNoteTs = 0;
+
+  // Debouncer.
+  let debStable = null;      // currently-stable emitted midi (waiting for release)
+  let debCandidate = null;   // midi we're building up toward stability
+  let debCount = 0;
+
+  // Practice session. When null, not practicing.
+  // {
+  //   startTs,           // performance.now() when practice began
+  //   root, scale,
+  //   timeLimitMs,       // 0 = no limit
+  //   events: [          // hits and misses (not target-shown events)
+  //     { ts, type: 'hit'|'miss', midi, reactionMs? },
+  //     ...
+  //   ],
+  //   hits, misses, totalReaction,
+  //   currentTarget: { pc, interval, ts },  // ts = when this target was shown
+  //   prevInterval,      // to avoid immediate repeats
+  //   hitTargets: [{ ts, pc }]  // history of hit targets, for timeline "target" markers
+  // }
+  let session = null;
+  let practicing = false;
+  // Snapshot of the most recently finished session, kept so the minimap can
+  // continue showing the full run after practice ends. Cleared when a new
+  // practice starts.
+  let lastSession = null;
+  // Currently selected vocabulary pack (or null for free practice).
+  let activePack = null;
+
+  // Today session state. When non-null, stopPractice auto-advances to the
+  // next queued item instead of stopping.
+  // { queue: Pack[], queueIdx: number, itemMs: number, results: [] }
+  let todaySession = null;
+  // The "preview" queue shown in the Today view before the user presses Start.
+  let todayPreviewQueue = [];
+
+  // Fretboard overlay state.
+  let showHighlight = true;
+  let showPlayingNote = true;
+  let lastPlayedMidi = null;
+
+  // Timeline / minimap canvas contexts.
+  let timelineCtx = null;
+  let minimapCtx = null;
+  let pianoRollCtx = null;
+  let progressCtx = null;
+
+  // Metronome state.
+  // Next audio-clock time at which a beat tick should be scheduled.
+  let metNextBeatTime = 0;
+  // Beat onsets we've already scheduled and are awaiting — each { audioTime, perfTime }.
+  // When performance.now() passes perfTime we fire onBeat() in the practice logic.
+  let metScheduledBeats = [];
+
+  // Recording state.
+  let recording = false;
+  let recordStartTs = 0;  // performance.now() at record start
+  // Each recorded note: { midi, startTs, endTs }
+  let recordedNotes = [];
+  // The note currently being captured (debouncer's stable midi). Its endTs is
+  // written when the played pitch changes or goes silent.
+  let openRecNote = null;
+
+  // Playback state.
+  let playing = false;
+  let playbackStartAudio = 0; // audioCtx.currentTime at playback start
+  let playbackTimer = null;   // setTimeout handle for loop rescheduling
+  // Master gain node all playback notes route through, so Stop can fade
+  // them out and kill queued oscillators in one shot.
+  let playbackGain = null;
+  let playbackOscs = [];
+
+  // id of the recording currently loaded from localStorage, if any.
+  let currentSavedId = null;
+
+  // Loop region (offsets in ms from the first note's startTs). Dragged via
+  // mouse on the piano roll; playback loops only between these points.
+  let loopStartMs = 0;
+  let loopEndMs = 0;
+  // Drag state for the piano-roll loop handles.
+  let loopDragHandle = null; // 'start' | 'end' | null
+
+  // ======================================================================
+  // Populate UI controls
+  // ======================================================================
   NOTE_NAMES.forEach(n => {
     const o = document.createElement("option");
     o.value = n; o.textContent = n;
@@ -292,30 +1318,309 @@
     scaleSel.appendChild(o);
   });
   scaleSel.value = "Major";
+  TIME_LIMITS.forEach(tl => {
+    const o = document.createElement("option");
+    o.value = String(tl.ms); o.textContent = tl.label;
+    timeLimitSel.appendChild(o);
+  });
+  timeLimitSel.value = "60000"; // default: 1 minute
 
-  let audioCtx, analyser, source, stream, rafId, running = false;
-  let buf; // Float32 time-domain buffer
+  // Box-pattern fret window for an anchor fret on a given scale.
+  function positionWindow(anchorFret, scaleName) {
+    const sc = SCALES[scaleName] || SCALES[scaleSel.value];
+    return {
+      lo: Math.max(0, anchorFret + sc.spanLo),
+      hi: Math.min(FRET_COUNT, anchorFret + sc.spanHi),
+    };
+  }
 
-  // Practice state.
-  let practicing = false;
-  let targetPc = null;        // pitch class 0-11 we're waiting for
-  let targetInterval = null;  // semitones from root
-  let prevInterval = null;    // to avoid immediate repeats
-  let matchStartTs = 0;       // when the current hold started
-  const HOLD_MS = 200;        // how long the correct note must be held
+  // Enumerate the box positions for a (scale, root) combo. Each entry is
+  // a place the scale root sits on the E or A string within 0–12 frets.
+  // Bass players naturally anchor on these two strings, so this gives the
+  // canonical "E-shape" and "A-shape" positions. Each scale/root produces
+  // exactly two positions.
+  function enumeratePositions(rootName) {
+    const rootPc = NOTE_NAMES.indexOf(rootName);
+    // TUNING is [G, D, A, E] (top row → bottom row); we want E first, then A.
+    const anchors = [
+      { stringIdx: 3, label: "E string" },
+      { stringIdx: 2, label: "A string" },
+    ];
+    return anchors.map(a => {
+      const stringPc = ((TUNING[a.stringIdx].midi % 12) + 12) % 12;
+      const fret = (rootPc - stringPc + 12) % 12; // 0–11
+      return { stringIdx: a.stringIdx, fret, label: a.label };
+    });
+  }
 
-  // Fretboard state.
-  let showHighlight = true;    // target highlight
-  let showPlayingNote = true;  // live played-note highlight
-  let lastPlayedMidi = null;   // last MIDI drawn on the playing layer
+  function positionLabel(pos, scaleName) {
+    const w = positionWindow(pos.fret, scaleName);
+    const fretStr = pos.fret === 0 ? "open" : "fret " + pos.fret;
+    return pos.label + " " + fretStr + " · frets " + w.lo + "–" + w.hi;
+  }
 
+  // Build the practice sidebar tree from VOCAB_PACKS, grouped by category
+  // in the order defined by PACK_CATEGORY_ORDER.
+  function buildPracticeTree() {
+    practiceTree.innerHTML = "";
+    const byCategory = {};
+    VOCAB_PACKS.forEach(p => {
+      const cat = p.category || "Other";
+      (byCategory[cat] = byCategory[cat] || []).push(p);
+    });
+    const ordered = [
+      ...PACK_CATEGORY_ORDER,
+      ...Object.keys(byCategory).filter(c => !PACK_CATEGORY_ORDER.includes(c)),
+    ];
+    const seen = new Set();
+    ordered.forEach((cat, catIdx) => {
+      if (!byCategory[cat] || seen.has(cat)) return;
+      seen.add(cat);
+      const det = document.createElement("details");
+      // Open the first category by default so the user sees something.
+      if (catIdx === 0) det.open = true;
+      const sum = document.createElement("summary");
+      sum.textContent = cat;
+      det.appendChild(sum);
+      const ul = document.createElement("ul");
+      byCategory[cat].forEach(p => {
+        const li = document.createElement("li");
+        li.className = "tree-item";
+        li.dataset.packId = p.id;
+        const name = document.createElement("span");
+        name.className = "item-name";
+        name.textContent = p.name;
+        const best = document.createElement("span");
+        best.className = "item-best";
+        best.textContent = "—";
+        li.appendChild(name);
+        li.appendChild(best);
+        li.addEventListener("click", () => selectPack(p));
+        ul.appendChild(li);
+      });
+      det.appendChild(ul);
+      practiceTree.appendChild(det);
+    });
+  }
+
+  // ---- Today session ----
+
+  // Compute best avg-reaction time per pack id from saved sessions.
+  function bestAvgByPack() {
+    const out = {};
+    loadSessions().forEach(s => {
+      if (!s.packId || s.avgReactionMs == null) return;
+      if (out[s.packId] == null || s.avgReactionMs < out[s.packId]) {
+        out[s.packId] = s.avgReactionMs;
+      }
+    });
+    return out;
+  }
+
+  // Pick TODAY_ITEMS items from the catalog ordered by tier first, then by
+  // "needs work" within each tier (never-practiced first, then highest
+  // best-avg-reaction first). Caps at most ~3 from any single tier so the
+  // session feels varied even when one tier is heavily underpracticed.
+  function buildTodaySession() {
+    const bests = bestAvgByPack();
+    const scored = VOCAB_PACKS.map(p => ({
+      pack: p,
+      tierIdx: PACK_CATEGORY_ORDER.indexOf(p.category),
+      best: bests[p.id],         // ms or undefined
+      isNew: bests[p.id] == null,
+    }));
+
+    // Sort: tier ascending, then within tier — never-practiced first,
+    // then practiced items by descending best (slower = needs more work).
+    scored.sort((a, b) => {
+      if (a.tierIdx !== b.tierIdx) return a.tierIdx - b.tierIdx;
+      if (a.isNew !== b.isNew) return a.isNew ? -1 : 1;
+      if (a.isNew && b.isNew) return 0;
+      return b.best - a.best;
+    });
+
+    // Take items in priority order, but cap per-tier so a single tier
+    // doesn't dominate the session.
+    const perTierCap = Math.max(2, Math.ceil(TODAY_ITEMS / PACK_CATEGORY_ORDER.length) + 1);
+    const counts = {};
+    const picked = [];
+    for (const s of scored) {
+      if (picked.length >= TODAY_ITEMS) break;
+      const c = counts[s.tierIdx] || 0;
+      if (c >= perTierCap) continue;
+      picked.push(s.pack);
+      counts[s.tierIdx] = c + 1;
+    }
+    // If we couldn't fill the session under the cap (small catalog edge
+    // case), top up from leftovers.
+    if (picked.length < TODAY_ITEMS) {
+      for (const s of scored) {
+        if (picked.length >= TODAY_ITEMS) break;
+        if (!picked.includes(s.pack)) picked.push(s.pack);
+      }
+    }
+    return picked;
+  }
+
+  function renderTodayView() {
+    todayPreviewQueue = buildTodaySession();
+    todayListEl.innerHTML = "";
+    todayPreviewQueue.forEach((p, i) => {
+      const li = document.createElement("li");
+      li.dataset.packId = p.id;
+      const num = document.createElement("span");
+      num.className = "num"; num.textContent = (i + 1) + ".";
+      const name = document.createElement("span");
+      name.className = "name"; name.textContent = p.name;
+      const cat = document.createElement("span");
+      cat.className = "cat"; cat.textContent = p.category;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      const bests = bestAvgByPack();
+      if (bests[p.id] == null) {
+        badge.textContent = "new";
+        badge.classList.add("fresh");
+      } else {
+        badge.textContent = Math.round(bests[p.id]) + " ms";
+      }
+      li.append(num, name, cat, badge);
+      todayListEl.appendChild(li);
+    });
+
+    const totalMin = (todayPreviewQueue.length * TODAY_ITEM_MS / 1000 / 60).toFixed(1);
+    todaySubEl.textContent = todayPreviewQueue.length +
+      " items · ~" + totalMin + " min · " + (TODAY_ITEM_MS / 1000) + "s each";
+  }
+
+  // Refresh best-result badges in the tree from saved sessions.
+  function refreshTreeBests() {
+    const sessions = loadSessions();
+    // Group best avg-reaction time by pack id.
+    const bestByPack = {};
+    sessions.forEach(s => {
+      if (!s.packId || s.avgReactionMs == null) return;
+      if (bestByPack[s.packId] == null || s.avgReactionMs < bestByPack[s.packId]) {
+        bestByPack[s.packId] = s.avgReactionMs;
+      }
+    });
+    practiceTree.querySelectorAll(".tree-item").forEach(li => {
+      const id = li.dataset.packId;
+      const best = bestByPack[id];
+      const badge = li.querySelector(".item-best");
+      badge.textContent = best != null ? Math.round(best) + " ms" : "—";
+    });
+  }
+
+  // Centralized control-disable logic. Practicing locks the practice
+  // controls; the sidebar tree is also locked so you can't swap mid-session.
+  function updateControlsEnabled() {
+    const lockedByPractice = practicing;
+    [modeSel, metronomeOnEl, bpmEl, timeLimitSel].forEach(el => {
+      el.disabled = lockedByPractice;
+    });
+    // Free-play scale controls are never locked.
+    [rootSel, scaleSel, positionSel].forEach(el => { el.disabled = false; });
+    // Tree clicks are blocked while practicing.
+    practiceTree.style.pointerEvents = lockedByPractice ? "none" : "";
+    practiceTree.style.opacity = lockedByPractice ? "0.5" : "";
+  }
+
+  // Select a pack from the tree: load it into the right pane, prepare the
+  // controls, and render the fretboard preview.
+  function selectPack(pack) {
+    if (practicing) return;
+    activePack = pack;
+    practiceTree.querySelectorAll(".tree-item").forEach(li => {
+      li.classList.toggle("active", li.dataset.packId === pack.id);
+    });
+    practiceEmpty.hidden = true;
+    itemPane.hidden = false;
+    summaryEl.hidden = true;
+    runtimeEl.hidden = true;
+    timelineWrap.hidden = true;
+    minimapWrap.hidden = true;
+
+    itemTitleEl.textContent = pack.name;
+
+    if (pack.type === "interval") {
+      const dirArrow = pack.direction === "down" ? "↓" : "↑";
+      itemSubEl.textContent =
+        pack.category + " · " + pack.semitones + " semitones " + dirArrow;
+    } else if (pack.type === "sequence") {
+      itemSubEl.textContent = pack.category + " · " + pack.notes.length + " notes";
+    } else {
+      itemSubEl.textContent = [pack.category, pack.root + " · " + pack.scale].join(" · ");
+      rootSel.value = pack.root;
+      scaleSel.value = pack.scale;
+      populatePositionDropdown();
+      positionSel.value = String(pack.positionAnchor);
+    }
+
+    renderFretboard();
+    renderHistory();
+  }
+
+  function populatePositionDropdown() {
+    const prev = positionSel.value;
+    positionSel.innerHTML = "";
+    const positions = enumeratePositions(rootSel.value);
+    positions.forEach((p, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = positionLabel(p, scaleSel.value);
+      positionSel.appendChild(o);
+    });
+    // Restore previous selection if still valid, else default to 0 (E string).
+    positionSel.value = (prev !== null && prev !== "" && positions[parseInt(prev, 10)])
+      ? prev : "0";
+  }
+  populatePositionDropdown();
+
+  // ======================================================================
+  // View switching
+  // ======================================================================
+  function showMainView(viewId) {
+    [todayView, freePlayView, practiceView, recordViewEl, tunerViewEl]
+      .forEach(v => v.hidden = (v.id !== viewId));
+    tabBtns.forEach(b => b.classList.toggle("active", b.dataset.view === viewId));
+
+    if (viewId === "today-view") renderTodayView();
+
+    // Re-parent the shared fretboard wrapper into the active view's slot.
+    if (viewId === "free-play-view") {
+      // In Free play, deactivate any pack so the controls drive directly.
+      activePack = null;
+      practiceTree.querySelectorAll(".tree-item.active").forEach(li => li.classList.remove("active"));
+      freePlayFretboardSlot.appendChild(fretboardWrap);
+      renderFretboard();
+    } else if (viewId === "practice-view") {
+      practiceFretboardSlot.appendChild(fretboardWrap);
+      // Restore the active pack's values to the controls in case Free play
+      // touched them.
+      if (activePack) {
+        rootSel.value = activePack.root;
+        scaleSel.value = activePack.scale;
+        populatePositionDropdown();
+        positionSel.value = String(activePack.positionAnchor);
+      }
+      renderFretboard();
+    }
+    if (viewId === "record-view") renderPianoRoll();
+  }
+
+  tabBtns.forEach(b => {
+    b.addEventListener("click", () => showMainView(b.dataset.view));
+  });
+
+  // ======================================================================
+  // Device list + audio start/stop
+  // ======================================================================
   async function listDevices() {
     try {
-      // Need a temporary permission grant to reveal device labels.
       const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
       tmp.getTracks().forEach(t => t.stop());
     } catch (e) {
-      statusEl.textContent = "Mic permission denied — device list will be unlabeled.";
+      setupStatus.textContent = "Mic permission denied — device list will be unlabeled.";
     }
     const devices = await navigator.mediaDevices.enumerateDevices();
     const inputs = devices.filter(d => d.kind === "audioinput");
@@ -333,8 +1638,8 @@
     }
   }
 
-  async function start() {
-    if (running) { stop(); return; }
+  async function startAudio() {
+    if (running) return;
     try {
       const deviceId = deviceSel.value;
       stream = await navigator.mediaDevices.getUserMedia({
@@ -350,50 +1655,50 @@
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       source = audioCtx.createMediaStreamSource(stream);
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 4096; // ~85ms at 48kHz — plenty for bass fundamental
+      analyser.fftSize = 4096; // ~85ms at 48kHz
       buf = new Float32Array(analyser.fftSize);
       source.connect(analyser);
 
       running = true;
-      startBtn.textContent = "Stop";
-      startBtn.classList.add("active");
+      // Transition from setup view to app shell.
+      setupViewEl.hidden = true;
+      appShell.hidden = false;
+      showMainView("today-view");
       statusEl.textContent = `Sample rate: ${audioCtx.sampleRate} Hz`;
       loop();
     } catch (e) {
-      statusEl.textContent = "Error: " + e.message;
+      setupStatus.textContent = "Error: " + e.message;
     }
   }
 
-  function stop() {
+  function stopAudio() {
     running = false;
-    if (practicing) stopPractice();
+    if (practicing) stopPractice("user");
+    if (recording) stopRecording();
+    if (playing) stopPlayback();
     updatePlayingHighlight(null);
     cancelAnimationFrame(rafId);
     if (stream) stream.getTracks().forEach(t => t.stop());
     if (audioCtx) audioCtx.close();
     audioCtx = stream = source = analyser = null;
-    startBtn.textContent = "Start";
-    startBtn.classList.remove("active");
-    noteEl.textContent = "—";
-    freqEl.innerHTML = "&nbsp;";
-    centsEl.innerHTML = "&nbsp;";
-    needleEl.style.left = "50%";
-    meterEl.classList.remove("in-tune");
+    // Back to setup.
+    appShell.hidden = true;
+    setupViewEl.hidden = false;
+    setupStatus.textContent = "Pick your audio input and press Start.";
   }
 
-  // Autocorrelation-based pitch detection.
-  // Adapted from the well-known cwilso/PitchDetect approach — robust for
-  // monophonic bass-range signals and cheap enough for realtime.
+  // ======================================================================
+  // Pitch detection
+  // ======================================================================
+  // Autocorrelation-based pitch detection (adapted from cwilso/PitchDetect).
   function autoCorrelate(buf, sampleRate) {
     const SIZE = buf.length;
 
-    // RMS gate — ignore silence / hum.
     let rms = 0;
     for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
     rms = Math.sqrt(rms / SIZE);
     if (rms < 0.01) return -1;
 
-    // Trim leading/trailing low-amplitude samples.
     const threshold = 0.2;
     let r1 = 0, r2 = SIZE - 1;
     for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < threshold) { r1 = i; break; }
@@ -401,15 +1706,11 @@
     const trimmed = buf.slice(r1, r2);
     const N = trimmed.length;
 
-    // Autocorrelation.
     const c = new Array(N).fill(0);
     for (let lag = 0; lag < N; lag++) {
-      for (let i = 0; i < N - lag; i++) {
-        c[lag] += trimmed[i] * trimmed[i + lag];
-      }
+      for (let i = 0; i < N - lag; i++) c[lag] += trimmed[i] * trimmed[i + lag];
     }
 
-    // Find first valley then first peak after it.
     let d = 0;
     while (d < N - 1 && c[d] > c[d + 1]) d++;
     let maxVal = -1, maxPos = -1;
@@ -419,7 +1720,6 @@
     let T0 = maxPos;
     if (T0 <= 0) return -1;
 
-    // Parabolic interpolation around the peak for sub-sample accuracy.
     const x1 = c[T0 - 1] || 0;
     const x2 = c[T0];
     const x3 = c[T0 + 1] || 0;
@@ -431,7 +1731,6 @@
   }
 
   function freqToNote(freq) {
-    // A4 = 440 Hz = MIDI 69
     const midi = 69 + 12 * Math.log2(freq / 440);
     const rounded = Math.round(midi);
     const name = NOTE_NAMES[((rounded % 12) + 12) % 12];
@@ -440,81 +1739,112 @@
     return { name, octave, cents, midi: rounded };
   }
 
-  // --- Practice sequencer ---
-
-  function pickNextTarget() {
-    const rootPc = NOTE_NAMES.indexOf(rootSel.value);
-    const intervals = SCALES[scaleSel.value];
-    // Pick a random interval, avoiding an immediate repeat (if possible).
-    let interval;
-    do {
-      interval = intervals[Math.floor(Math.random() * intervals.length)];
-    } while (intervals.length > 1 && interval === prevInterval);
-    prevInterval = interval;
-
-    targetInterval = interval;
-    targetPc = (rootPc + interval) % 12;
-    targetNoteEl.textContent = NOTE_NAMES[targetPc];
-    targetIntervalEl.textContent = INTERVAL_NAMES[interval] + " of " + rootSel.value;
-    renderFretboard();
+  // ======================================================================
+  // Metronome
+  // ======================================================================
+  // Schedule a short tick sound at the given audio-clock time.
+  function scheduleTick(audioTime, accent) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = accent ? 1600 : 1000;
+    gain.gain.setValueAtTime(0, audioTime);
+    gain.gain.linearRampToValueAtTime(accent ? 0.25 : 0.18, audioTime + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioTime + 0.06);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(audioTime);
+    osc.stop(audioTime + 0.1);
   }
 
-  function startPractice() {
-    if (!running) {
-      statusEl.textContent = "Start the detector first.";
-      return;
+  // Pump the metronome: schedule upcoming ticks in the lookahead window and,
+  // if `driveBeats` is true, fire onBeat() when each scheduled beat arrives.
+  // Called each animation frame by whichever mode (practice or record) is
+  // currently using the metronome — not simultaneously.
+  function pumpMetronome(bpm, driveBeats) {
+    if (!audioCtx || !bpm) return;
+
+    // If the next-beat clock is stale (first call / been off for a while),
+    // reset so we don't flood-schedule a burst of catch-up ticks.
+    if (metNextBeatTime < audioCtx.currentTime - 0.3) {
+      metNextBeatTime = audioCtx.currentTime + 0.1;
+      metScheduledBeats = [];
     }
-    practicing = true;
-    prevInterval = null;
-    matchStartTs = 0;
-    targetEl.hidden = false;
-    practiceBtn.textContent = "Stop Practice";
-    practiceBtn.classList.add("active");
-    pickNextTarget();
+
+    const interval = 60 / bpm;
+    while (metNextBeatTime < audioCtx.currentTime + METRONOME_LOOKAHEAD) {
+      scheduleTick(metNextBeatTime, false);
+      if (driveBeats) {
+        // Map audio-clock time to perf-clock time so the game logic can fire
+        // at roughly the same moment the user hears the click.
+        const perfTime = performance.now() + (metNextBeatTime - audioCtx.currentTime) * 1000;
+        metScheduledBeats.push({ audioTime: metNextBeatTime, perfTime });
+      }
+      metNextBeatTime += interval;
+    }
+
+    if (driveBeats) {
+      const now = performance.now();
+      while (metScheduledBeats.length && metScheduledBeats[0].perfTime <= now + BEAT_HIT_GRACE_MS) {
+        const beat = metScheduledBeats.shift();
+        onBeat(beat.perfTime);
+      }
+    }
   }
 
-  function stopPractice() {
-    practicing = false;
-    targetEl.hidden = true;
-    targetEl.classList.remove("hit");
-    practiceBtn.textContent = "Practice";
-    practiceBtn.classList.remove("active");
-    targetPc = null;
-    renderFretboard();
+  // ======================================================================
+  // Note-event debouncer
+  // ======================================================================
+  // Feed this every frame with the detector's current midi (or null for
+  // silence). Returns a midi value only on the frame where a NEW stable note
+  // is first observed; otherwise returns null. The same note must be
+  // "released" (silence or a different midi) before it can be emitted again.
+  function debounceNote(midi) {
+    if (midi == null) {
+      debCandidate = null;
+      debCount = 0;
+      debStable = null;
+      return null;
+    }
+    if (midi === debStable) return null;            // already emitted; wait for release
+    if (midi === debCandidate) {
+      debCount++;
+      if (debCount >= STABILITY_FRAMES) {
+        debStable = midi;
+        debCandidate = null;
+        debCount = 0;
+        return midi;
+      }
+      return null;
+    }
+    // New candidate.
+    debCandidate = midi;
+    debCount = 1;
+    return null;
   }
 
-  function flashHit() {
-    targetEl.classList.add("hit");
-    setTimeout(() => targetEl.classList.remove("hit"), 180);
-  }
-
-  // --- Fretboard rendering ---
-
-  // 4-string bass, standard tuning. Top row = high G, bottom row = low E
-  // (so pitch ascends upward visually — matches how the bass looks when
-  // you're playing it).
-  const TUNING = [
-    { name: "G", midi: 43 },
-    { name: "D", midi: 38 },
-    { name: "A", midi: 33 },
-    { name: "E", midi: 28 },
-  ];
-  const FRET_COUNT = 12;
-  const SVG_NS = "http://www.w3.org/2000/svg";
-  // Layout constants — shared between renderFretboard and updatePlayingHighlight.
-  const NUT_X = 56;
-  const FRET_W = 48;
-  const STRING_SPACING = 38;
-  const PAD_TOP = 20;
-
+  // ======================================================================
+  // Fretboard rendering
+  // ======================================================================
   function svgEl(tag, attrs) {
     const el = document.createElementNS(SVG_NS, tag);
     for (const k in attrs) el.setAttribute(k, attrs[k]);
     return el;
   }
 
+  // The fret window currently in effect — locked to the session while
+  // practicing, otherwise derived live from the position dropdown.
+  function currentFretRange() {
+    if (session) return { lo: session.fretMin, hi: session.fretMax };
+    const positions = enumeratePositions(rootSel.value);
+    const idx = parseInt(positionSel.value, 10) || 0;
+    const pos = positions[idx] || positions[0];
+    if (!pos) return { lo: 0, hi: FRET_COUNT };
+    return positionWindow(pos.fret, scaleSel.value);
+  }
+
   function renderFretboard() {
-    if (fretboardWrap.hidden) return;
+    if (!fretboardEl) return;
     fretboardEl.innerHTML = "";
 
     const W = NUT_X + FRET_COUNT * FRET_W + 16;
@@ -522,12 +1852,10 @@
 
     const svg = svgEl("svg", {
       viewBox: `0 0 ${W} ${H}`,
-      width: W,
-      height: H,
+      width: W, height: H,
       "font-family": "-apple-system, BlinkMacSystemFont, sans-serif",
     });
 
-    // Dark fretboard panel.
     svg.appendChild(svgEl("rect", {
       x: NUT_X, y: PAD_TOP - 10,
       width: FRET_COUNT * FRET_W,
@@ -535,7 +1863,6 @@
       fill: "#1c1c20", rx: 4,
     }));
 
-    // Inlay dots (behind strings) at 3, 5, 7, 9, double at 12.
     const midY = PAD_TOP + ((TUNING.length - 1) * STRING_SPACING) / 2;
     [3, 5, 7, 9].forEach(f => {
       svg.appendChild(svgEl("circle", {
@@ -548,7 +1875,6 @@
       }));
     });
 
-    // Fret lines (nut is thick + white).
     for (let f = 0; f <= FRET_COUNT; f++) {
       svg.appendChild(svgEl("line", {
         x1: NUT_X + f * FRET_W, x2: NUT_X + f * FRET_W,
@@ -558,64 +1884,66 @@
       }));
     }
 
-    // Fret number labels below the conventional marker frets.
     [3, 5, 7, 9, 12].forEach(f => {
       const t = svgEl("text", {
         x: NUT_X + (f - 0.5) * FRET_W,
-        y: H - 10,
-        fill: "#666",
-        "font-size": 11,
-        "text-anchor": "middle",
+        y: H - 10, fill: "#666",
+        "font-size": 11, "text-anchor": "middle",
       });
       t.textContent = f;
       svg.appendChild(t);
     });
 
-    // Compute scale pitch classes.
     const rootPc = NOTE_NAMES.indexOf(rootSel.value);
-    const intervals = SCALES[scaleSel.value];
+    const intervals = SCALES[scaleSel.value].intervals;
     const scalePcs = new Set(intervals.map(i => (rootPc + i) % 12));
+    const targetMidi = session && session.currentTarget ? session.currentTarget.midi : null;
+    // If a pack with a degree subset is active, dim scale notes that are
+    // not in the subset so the fretboard reflects what we'll target.
+    const packDegrees = activePack && activePack.degrees ? new Set(activePack.degrees) : null;
+    // Fret window is the session's locked window while practicing; otherwise
+    // derived from the live position dropdown so the fretboard updates as the
+    // user adjusts the position.
+    const { lo: fretLo, hi: fretHi } = currentFretRange();
 
-    // Strings + note dots.
     TUNING.forEach((string, si) => {
       const y = PAD_TOP + si * STRING_SPACING;
-
-      // String line — slightly thicker for the lower strings.
       svg.appendChild(svgEl("line", {
         x1: NUT_X, x2: NUT_X + FRET_COUNT * FRET_W,
         y1: y, y2: y,
-        stroke: "#888",
-        "stroke-width": 1 + si * 0.35,
+        stroke: "#888", "stroke-width": 1 + si * 0.35,
       }));
-
-      // String label to the left.
       const lbl = svgEl("text", {
-        x: 18, y: y + 4,
-        fill: "#888",
-        "font-size": 13,
-        "text-anchor": "middle",
-        "font-weight": 500,
+        x: 18, y: y + 4, fill: "#888",
+        "font-size": 13, "text-anchor": "middle", "font-weight": 500,
       });
       lbl.textContent = string.name;
       svg.appendChild(lbl);
 
-      // Note dots for every scale pitch on this string.
       for (let f = 0; f <= FRET_COUNT; f++) {
         const midi = string.midi + f;
         const pc = ((midi % 12) + 12) % 12;
         if (!scalePcs.has(pc)) continue;
 
+        const inRange  = f >= fretLo && f <= fretHi;
         const isRoot   = pc === rootPc;
-        const isTarget = showHighlight && practicing && pc === targetPc;
+        const interval = ((pc - rootPc) + 12) % 12;
+        const inPack   = !packDegrees || packDegrees.has(interval);
+        const isTarget = showHighlight && practicing && targetMidi != null
+                         && midi === targetMidi && inRange;
 
-        // Open string notes sit just left of the nut; fretted notes
-        // center between the fret lines.
         const cx = f === 0 ? NUT_X - 22 : NUT_X + (f - 0.5) * FRET_W;
         const r = 13;
 
         let fill, stroke, strokeWidth, textColor;
         if (isTarget) {
           fill = "#ffb454"; stroke = "#ffb454"; strokeWidth = 2; textColor = "#0e0e10";
+        } else if (!inRange) {
+          // Scale note, but outside the range band — show faintly for context.
+          fill = "#1c1c20"; stroke = "#3a3a40"; strokeWidth = 1; textColor = "#555";
+        } else if (!inPack) {
+          // In box but excluded by the pack's degree filter.
+          fill = "#202024"; stroke = "#3a3a40"; strokeWidth = 1; textColor = "#666";
         } else if (isRoot) {
           fill = "#2a2118"; stroke = "#ffb454"; strokeWidth = 2; textColor = "#ffb454";
         } else {
@@ -626,10 +1954,8 @@
           cx, cy: y, r, fill, stroke, "stroke-width": strokeWidth,
         }));
         const t = svgEl("text", {
-          x: cx, y: y + 4,
-          fill: textColor,
-          "font-size": 11,
-          "font-weight": isRoot || isTarget ? 600 : 400,
+          x: cx, y: y + 4, fill: textColor,
+          "font-size": 11, "font-weight": (isRoot && inRange) || isTarget ? 600 : 400,
           "text-anchor": "middle",
         });
         t.textContent = NOTE_NAMES[pc];
@@ -637,34 +1963,29 @@
       }
     });
 
-    // Overlay layer for live played-note highlights. We wipe and repopulate
-    // this instead of rebuilding the whole SVG when the detected note changes.
     svg.appendChild(svgEl("g", { id: "playing-layer" }));
-
     fretboardEl.appendChild(svg);
 
-    // Re-draw any current playing highlight onto the fresh SVG.
-    const wasPlaying = lastPlayedMidi;
+    // Re-apply the current played-note overlay to the fresh SVG.
+    const held = lastPlayedMidi;
     lastPlayedMidi = null;
-    if (wasPlaying != null) updatePlayingHighlight(wasPlaying);
+    if (held != null) updatePlayingHighlight(held);
   }
 
-  // Highlights every fretboard position where the given MIDI note can be
-  // played. `midi` may be null to clear. Called from the audio loop — so it
-  // short-circuits when the note hasn't changed since last call.
   function updatePlayingHighlight(midi) {
-    if (fretboardWrap.hidden) return;
     if (midi === lastPlayedMidi) return;
     lastPlayedMidi = midi;
-
     const layer = fretboardEl.querySelector("#playing-layer");
     if (!layer) return;
     layer.innerHTML = "";
     if (midi == null || !showPlayingNote) return;
 
+    const { lo, hi } = currentFretRange();
     TUNING.forEach((string, si) => {
       const fret = midi - string.midi;
       if (fret < 0 || fret > FRET_COUNT) return;
+      // Only highlight positions inside the current box window.
+      if (fret < lo || fret > hi) return;
       const y = PAD_TOP + si * STRING_SPACING;
       const cx = fret === 0 ? NUT_X - 22 : NUT_X + (fret - 0.5) * FRET_W;
       layer.appendChild(svgEl("circle", {
@@ -677,85 +1998,1806 @@
     });
   }
 
-  function toggleFretboard() {
-    const show = fretboardWrap.hidden; // was hidden, now showing
-    fretboardWrap.hidden = !show;
-    fretboardBtn.classList.toggle("active", show);
-    if (show) renderFretboard();
+  // ======================================================================
+  // Timeline canvas
+  // ======================================================================
+  function setupHiDPICanvas(canvas, cssW, cssH) {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    canvas.style.width  = cssW + "px";
+    canvas.style.height = cssH + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return ctx;
   }
 
-  let lastNoteTs = 0;
+  function setupTimelineCanvas() {
+    timelineCtx = setupHiDPICanvas(timelineEl, TIMELINE_W, TIMELINE_H);
+  }
+
+  function setupMinimapCanvas() {
+    minimapCtx = setupHiDPICanvas(minimapEl, MINIMAP_W, MINIMAP_H);
+  }
+
+  function setupPianoRollCanvas() {
+    pianoRollCtx = setupHiDPICanvas(pianoRollEl, ROLL_W, ROLL_H);
+  }
+
+  function setupProgressCanvas() {
+    progressCtx = setupHiDPICanvas(progressChartEl, PROGRESS_W, PROGRESS_H);
+  }
+
+  function renderTimeline() {
+    if (!timelineCtx || timelineWrap.hidden) return;
+    const ctx = timelineCtx;
+    const W = TIMELINE_W, H = TIMELINE_H;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    // Background (already the panel color via CSS, but we draw to clear).
+    ctx.fillStyle = "#1c1c20";
+    ctx.fillRect(0, 0, W, H);
+
+    // Center "now" guideline.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, 8);
+    ctx.lineTo(cx, H - 8);
+    ctx.stroke();
+
+    // Horizontal axis line.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.beginPath();
+    ctx.moveTo(8, cy);
+    ctx.lineTo(W - 8, cy);
+    ctx.stroke();
+
+    if (!session) return;
+
+    const now = performance.now();
+
+    // Draw past hit-targets (green outlined ring at target-shown time).
+    // These show the cadence of correct hits across time.
+    for (const ht of session.hitTargets) {
+      const age = (now - ht.ts) / 1000;
+      const x = cx - age * TIMELINE_PPS;
+      if (x < -30) continue;
+      drawMarker(ctx, x, cy, NOTE_NAMES[ht.pc], "#7bd88f", "#0e0e10", 16, true);
+    }
+
+    // Draw misses (red).
+    for (const ev of session.events) {
+      if (ev.type !== "miss") continue;
+      const age = (now - ev.ts) / 1000;
+      const x = cx - age * TIMELINE_PPS;
+      if (x < -30) continue;
+      const pc = ((ev.midi % 12) + 12) % 12;
+      drawMarker(ctx, x, cy, NOTE_NAMES[pc], "#ff6e6e", "#0e0e10", 14, true);
+    }
+
+    // Draw the current (active) target as a hollow accent ring, positioned
+    // at (cx - age * pps). Fresh targets appear at the center and scroll left.
+    if (practicing && session.currentTarget) {
+      const t = session.currentTarget;
+      const age = (now - t.ts) / 1000;
+      const x = cx - age * TIMELINE_PPS;
+      drawMarker(ctx, x, cy, NOTE_NAMES[t.pc], null, "#ffb454", 20, false);
+    }
+  }
+
+  function drawMarker(ctx, x, y, text, fill, stroke, r, filled) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (filled) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    ctx.lineWidth = filled ? 0 : 3;
+    if (!filled) {
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+    }
+    ctx.fillStyle = filled ? "#0e0e10" : stroke;
+    ctx.font = "bold " + (filled ? 12 : 14) + "px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, y + 1);
+  }
+
+  // ======================================================================
+  // Minimap canvas
+  // ======================================================================
+  // Zoomed-out view of the entire session. Renders the live session while
+  // practicing, or the finished session after stopPractice — whichever is
+  // available in `session` / `lastSession`.
+  function renderMinimap() {
+    if (!minimapCtx || minimapWrap.hidden) return;
+
+    const ctx = minimapCtx;
+    const W = MINIMAP_W, H = MINIMAP_H;
+    const padX = 8;
+    const innerW = W - padX * 2;
+    const midY = H / 2;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#1c1c20";
+    ctx.fillRect(0, 0, W, H);
+
+    const s = session || lastSession;
+    if (!s) return;
+
+    // Time scale. For time-limited sessions the scale is fixed so the
+    // playhead progresses left-to-right. For unlimited sessions the scale
+    // grows as elapsed time exceeds a baseline.
+    const startTs = s.startTs;
+    const isLive = !!session;
+    const now = performance.now();
+    const elapsed = isLive ? (now - startTs) : (s.endTs - startTs);
+    const maxTime = s.timeLimitMs > 0
+      ? s.timeLimitMs
+      : Math.max(elapsed, NO_LIMIT_BASE_MS);
+
+    const tsToX = (ts) => {
+      const frac = (ts - startTs) / maxTime;
+      return padX + Math.max(0, Math.min(1, frac)) * innerW;
+    };
+
+    // Elapsed-time tint.
+    const endX = tsToX(startTs + elapsed);
+    ctx.fillStyle = "rgba(255, 180, 84, 0.07)";
+    ctx.fillRect(padX, 4, endX - padX, H - 8);
+
+    // Horizontal midline through the event strip.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padX, midY);
+    ctx.lineTo(W - padX, midY);
+    ctx.stroke();
+
+    // Outer frame.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.strokeRect(padX + 0.5, 4.5, innerW - 1, H - 9);
+
+    // Viewport window: highlights the slice of time the main timeline is
+    // currently showing. Only meaningful while practicing.
+    if (isLive) {
+      const viewportMs = (TIMELINE_W / 2) / TIMELINE_PPS * 1000;
+      const vStart = Math.max(now - viewportMs, startTs);
+      const vEnd = now;
+      const vx1 = tsToX(vStart);
+      const vx2 = tsToX(vEnd);
+      if (vx2 - vx1 > 1) {
+        ctx.fillStyle = "rgba(242, 242, 242, 0.06)";
+        ctx.fillRect(vx1, 4, vx2 - vx1, H - 8);
+        ctx.strokeStyle = "rgba(242, 242, 242, 0.2)";
+        ctx.strokeRect(vx1 + 0.5, 4.5, vx2 - vx1 - 1, H - 9);
+      }
+    }
+
+    // Event markers. Draw misses first so overlapping hits land on top.
+    const drawDot = (x, color) => {
+      ctx.beginPath();
+      ctx.arc(x, midY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    for (const ev of s.events) {
+      if (ev.type !== "miss") continue;
+      drawDot(tsToX(ev.ts), "#ff6e6e");
+    }
+    for (const ev of s.events) {
+      if (ev.type !== "hit") continue;
+      drawDot(tsToX(ev.ts), "#7bd88f");
+    }
+
+    // Playhead at current time (live) or at end time (finished).
+    const playX = endX;
+    ctx.strokeStyle = isLive ? "#ffb454" : "#666";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(playX, 2);
+    ctx.lineTo(playX, H - 2);
+    ctx.stroke();
+  }
+
+  // ======================================================================
+  // Recording + piano roll
+  // ======================================================================
+  // We track the current "held" note ourselves so we can detect its end
+  // (silence or transition to a different note). Driven from the main loop.
+  let recHeldMidi = null;
+
+  function startRecording() {
+    if (!running) return;
+    recording = true;
+    recordStartTs = performance.now();
+    recordedNotes = [];
+    openRecNote = null;
+    recHeldMidi = null;
+    recordBtn.textContent = "Stop";
+    recordBtn.classList.add("active");
+    recIndicatorEl.classList.add("on");
+    recInfoEl.textContent = "";
+    // Prime metronome for recording if enabled.
+    if (recMetOnEl.checked) {
+      metNextBeatTime = audioCtx.currentTime + 0.1;
+      metScheduledBeats = [];
+    }
+    renderPianoRoll();
+  }
+
+  function stopRecording() {
+    recording = false;
+    if (openRecNote) {
+      openRecNote.endTs = performance.now();
+      if (openRecNote.endTs - openRecNote.startTs > 30) {
+        recordedNotes.push(openRecNote);
+      }
+      openRecNote = null;
+    }
+    recHeldMidi = null;
+    metScheduledBeats = [];
+    recordBtn.textContent = "Record";
+    recordBtn.classList.remove("active");
+    recIndicatorEl.classList.remove("on");
+
+    // Persist the newly-captured recording and reset the loop to the full span.
+    if (recordedNotes.length > 0) {
+      const first = recordedNotes[0].startTs;
+      const last = recordedNotes[recordedNotes.length - 1].endTs || first;
+      loopStartMs = 0;
+      loopEndMs = last - first;
+      saveCurrentRecording();
+    }
+
+    updateRecInfo();
+    renderPianoRoll();
+  }
+
+  function clearRecording() {
+    stopPlayback();
+    recordedNotes = [];
+    openRecNote = null;
+    recHeldMidi = null;
+    currentSavedId = null;
+    loopStartMs = 0;
+    loopEndMs = 0;
+    populateRecordingsDropdown();
+    updateRecInfo();
+    renderPianoRoll();
+  }
+
+  function updateRecInfo() {
+    if (recordedNotes.length === 0) {
+      recInfoEl.textContent = "No recording";
+      return;
+    }
+    const first = recordedNotes[0].startTs;
+    const last = recordedNotes[recordedNotes.length - 1].endTs || performance.now();
+    const seconds = ((last - first) / 1000).toFixed(1);
+    recInfoEl.textContent = recordedNotes.length + " notes · " + seconds + "s";
+  }
+
+  // ---- Recording persistence ----
+  // Stored shape: { id, timestamp, durationMs, noteCount, notes: [{midi,start,end}] }
+  // where start/end are offsets in ms from the recording start (so that
+  // absolute performance.now() values don't need to survive reloads).
+  function loadSavedRecordings() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDINGS) || "[]");
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveCurrentRecording() {
+    if (recordedNotes.length === 0) return null;
+    const first = recordedNotes[0].startTs;
+    const last  = recordedNotes[recordedNotes.length - 1].endTs || first;
+    const entry = {
+      id: String(Date.now()) + "-" + Math.floor(Math.random() * 10000),
+      timestamp: Date.now(),
+      durationMs: last - first,
+      noteCount: recordedNotes.length,
+      notes: recordedNotes.map(n => ({
+        midi: n.midi,
+        start: n.startTs - first,
+        end:   (n.endTs || n.startTs) - first,
+      })),
+    };
+    try {
+      const all = loadSavedRecordings();
+      all.push(entry);
+      while (all.length > MAX_STORED_RECORDINGS) all.shift();
+      localStorage.setItem(STORAGE_KEY_RECORDINGS, JSON.stringify(all));
+      currentSavedId = entry.id;
+      populateRecordingsDropdown();
+      return entry;
+    } catch (e) {
+      // Storage full / disabled — ignore.
+      return null;
+    }
+  }
+
+  function formatSavedLabel(r) {
+    const d = new Date(r.timestamp);
+    const day = d.toDateString() === new Date().toDateString()
+      ? ""
+      : (d.getMonth() + 1) + "/" + d.getDate() + " ";
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const dur = (r.durationMs / 1000).toFixed(1);
+    return day + hh + ":" + mm + " · " + r.noteCount + " notes · " + dur + "s";
+  }
+
+  function populateRecordingsDropdown() {
+    const all = loadSavedRecordings().slice().reverse(); // newest first
+    savedRecSel.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = all.length ? "Load recording…" : "No saved recordings";
+    savedRecSel.appendChild(placeholder);
+    all.forEach(r => {
+      const o = document.createElement("option");
+      o.value = r.id;
+      o.textContent = formatSavedLabel(r);
+      savedRecSel.appendChild(o);
+    });
+    // Reflect the currently loaded id, if any.
+    if (currentSavedId) savedRecSel.value = currentSavedId;
+    deleteRecBtn.disabled = !currentSavedId;
+  }
+
+  function loadRecordingById(id) {
+    const r = loadSavedRecordings().find(x => x.id === id);
+    if (!r) return;
+    stopPlayback();
+    const now = performance.now();
+    recordStartTs = now;
+    recordedNotes = r.notes.map(n => ({
+      midi: n.midi,
+      startTs: now + n.start,
+      endTs:   now + n.end,
+    }));
+    openRecNote = null;
+    recHeldMidi = null;
+    currentSavedId = id;
+    loopStartMs = 0;
+    loopEndMs = r.durationMs;
+    deleteRecBtn.disabled = false;
+    updateRecInfo();
+    renderPianoRoll();
+  }
+
+  // Convert a mouse event over the piano roll into a (canvasX, timeMs) pair.
+  // The canvas is rendered at a fixed internal size (ROLL_W) but may be
+  // displayed at a different CSS width — we account for that here.
+  function pianoRollMouseInfo(e) {
+    const rect = pianoRollEl.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    const cssX = e.clientX - rect.left;
+    const canvasX = cssX * (ROLL_W / rect.width);
+    const { innerX, innerW } = rollLayout();
+    const { windowMs } = rollTimeWindow();
+    const relX = (canvasX - innerX) / innerW;
+    const timeMs = Math.max(0, Math.min(windowMs, relX * windowMs));
+    return { canvasX, timeMs, windowMs };
+  }
+
+  // Returns 'start' / 'end' / null based on which (if any) loop handle the
+  // given canvas X is within range of.
+  function loopHandleAt(canvasX) {
+    if (recordedNotes.length === 0 || loopEndMs <= loopStartMs) return null;
+    const { innerX, innerW } = rollLayout();
+    const { windowMs } = rollTimeWindow();
+    const lx1 = innerX + (loopStartMs / windowMs) * innerW;
+    const lx2 = innerX + (loopEndMs   / windowMs) * innerW;
+    const HIT = 8;
+    if (Math.abs(canvasX - lx1) <= HIT) return "start";
+    if (Math.abs(canvasX - lx2) <= HIT) return "end";
+    return null;
+  }
+
+  pianoRollEl.addEventListener("mousedown", (e) => {
+    const info = pianoRollMouseInfo(e);
+    if (!info) return;
+    const handle = loopHandleAt(info.canvasX);
+    if (handle) {
+      loopDragHandle = handle;
+      e.preventDefault();
+    }
+  });
+
+  // Hover cursor feedback when not dragging.
+  pianoRollEl.addEventListener("mousemove", (e) => {
+    if (loopDragHandle) return;
+    const info = pianoRollMouseInfo(e);
+    if (!info) return;
+    pianoRollEl.style.cursor = loopHandleAt(info.canvasX) ? "ew-resize" : "default";
+  });
+
+  // Drag updates: tracked on window so the drag continues even if the mouse
+  // strays off the canvas momentarily.
+  window.addEventListener("mousemove", (e) => {
+    if (!loopDragHandle) return;
+    const info = pianoRollMouseInfo(e);
+    if (!info) return;
+    const dur = recordingDurationMs();
+    const minLoop = 100; // ms
+    let ms = Math.max(0, Math.min(dur, info.timeMs));
+    if (loopDragHandle === "start") {
+      loopStartMs = Math.max(0, Math.min(ms, loopEndMs - minLoop));
+    } else {
+      loopEndMs = Math.max(loopStartMs + minLoop, Math.min(dur, ms));
+    }
+    renderPianoRoll();
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (loopDragHandle) {
+      loopDragHandle = null;
+      pianoRollEl.style.cursor = "default";
+    }
+  });
+
+  function deleteCurrentSavedRecording() {
+    if (!currentSavedId) return;
+    const remaining = loadSavedRecordings().filter(r => r.id !== currentSavedId);
+    try {
+      localStorage.setItem(STORAGE_KEY_RECORDINGS, JSON.stringify(remaining));
+    } catch (e) { /* ignore */ }
+    currentSavedId = null;
+    stopPlayback();
+    recordedNotes = [];
+    openRecNote = null;
+    populateRecordingsDropdown();
+    updateRecInfo();
+    renderPianoRoll();
+  }
+
+  // Called from the main loop while recording is on. `detectedMidi` is the
+  // per-frame raw midi (may flicker); we smooth it by requiring the debouncer
+  // to have moved `debStable` before accepting a transition.
+  function pumpRecording() {
+    if (!recording) return;
+    const now = performance.now();
+    const stable = debStable; // debouncer's currently-held note (or null)
+
+    if (stable !== recHeldMidi) {
+      // Close any open note.
+      if (openRecNote) {
+        openRecNote.endTs = now;
+        if (openRecNote.endTs - openRecNote.startTs > 30) {
+          recordedNotes.push(openRecNote);
+        }
+        openRecNote = null;
+      }
+      if (stable != null) {
+        openRecNote = { midi: stable, startTs: now, endTs: null };
+      }
+      recHeldMidi = stable;
+    }
+    if (openRecNote) {
+      openRecNote.endTs = now; // grows the live note
+    }
+  }
+
+  // Shared layout / time computation for the piano roll. Both rendering and
+  // the mouse hit-testing use this.
+  function rollLayout() {
+    return {
+      W: ROLL_W, H: ROLL_H,
+      labelW: 38,
+      innerX: 38,
+      innerY: 8,
+      innerW: ROLL_W - 38 - 10,
+      innerH: ROLL_H - 16,
+    };
+  }
+
+  function rollTimeWindow() {
+    const now = performance.now();
+    if (recording) {
+      return { tStart: recordStartTs, windowMs: Math.max(now - recordStartTs, ROLL_MIN_WINDOW_MS) };
+    }
+    if (recordedNotes.length > 0) {
+      const tStart = recordedNotes[0].startTs;
+      const last = recordedNotes[recordedNotes.length - 1];
+      const windowMs = Math.max((last.endTs || now) - tStart, ROLL_MIN_WINDOW_MS);
+      return { tStart, windowMs };
+    }
+    return { tStart: now, windowMs: ROLL_MIN_WINDOW_MS };
+  }
+
+  function recordingDurationMs() {
+    if (recordedNotes.length === 0) return 0;
+    const first = recordedNotes[0].startTs;
+    const last = recordedNotes[recordedNotes.length - 1].endTs || first;
+    return last - first;
+  }
+
+  function renderPianoRoll() {
+    if (!pianoRollCtx) return;
+    const ctx = pianoRollCtx;
+    const { W, H, labelW, innerX, innerY, innerW, innerH } = rollLayout();
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#1c1c20";
+    ctx.fillRect(0, 0, W, H);
+
+    const rowCount = ROLL_MIDI_HIGH - ROLL_MIDI_LOW + 1;
+    const rowH = innerH / rowCount;
+
+    const now = performance.now();
+    const { tStart, windowMs } = rollTimeWindow();
+
+    const tsToX = (ts) => innerX + ((ts - tStart) / windowMs) * innerW;
+    const midiToY = (midi) => innerY + (ROLL_MIDI_HIGH - midi) * rowH;
+
+    // Rows: shade non-naturals, separator line every semitone, bold line on C.
+    for (let m = ROLL_MIDI_LOW; m <= ROLL_MIDI_HIGH; m++) {
+      const y = midiToY(m);
+      const pc = ((m % 12) + 12) % 12;
+      const isNatural = pc === 0 || pc === 2 || pc === 4 || pc === 5 || pc === 7 || pc === 9 || pc === 11;
+      if (!isNatural) {
+        ctx.fillStyle = "rgba(44, 44, 50, 0.5)";
+        ctx.fillRect(innerX, y, innerW, rowH);
+      }
+      if (pc === 0) {
+        ctx.strokeStyle = "#3c3c42";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(innerX, y);
+        ctx.lineTo(innerX + innerW, y);
+        ctx.stroke();
+        const octave = Math.floor(m / 12) - 1;
+        ctx.fillStyle = "#666";
+        ctx.font = "10px -apple-system, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText("C" + octave, labelW - 5, y);
+      }
+    }
+
+    // Vertical gridlines at each second (or every 2s for longer windows).
+    const secInterval = windowMs <= 12000 ? 1000 : 2000;
+    ctx.strokeStyle = "#25252a";
+    ctx.lineWidth = 0.5;
+    for (let t = 0; t <= windowMs + 1; t += secInterval) {
+      const x = innerX + (t / windowMs) * innerW;
+      ctx.beginPath();
+      ctx.moveTo(x, innerY);
+      ctx.lineTo(x, innerY + innerH);
+      ctx.stroke();
+    }
+
+    // Frame.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(innerX + 0.5, innerY + 0.5, innerW - 1, innerH - 1);
+
+    // Draw recorded notes.
+    function drawNote(note, color) {
+      if (note.midi < ROLL_MIDI_LOW || note.midi > ROLL_MIDI_HIGH) return;
+      const x1 = tsToX(note.startTs);
+      const x2 = tsToX(note.endTs || now);
+      const y = midiToY(note.midi);
+      const w = Math.max(2, x2 - x1);
+      ctx.fillStyle = color;
+      ctx.fillRect(x1, y + 1, w, Math.max(2, rowH - 2));
+    }
+    for (const n of recordedNotes) drawNote(n, "#ffb454");
+    if (openRecNote) drawNote(openRecNote, "#ffd08a");
+
+    // Loop region (only when there's a recording).
+    if (!recording && recordedNotes.length > 0 && loopEndMs > loopStartMs) {
+      const lx1 = innerX + (loopStartMs / windowMs) * innerW;
+      const lx2 = innerX + (loopEndMs   / windowMs) * innerW;
+      // Subtle shaded region.
+      ctx.fillStyle = "rgba(255, 180, 84, 0.07)";
+      ctx.fillRect(lx1, innerY, lx2 - lx1, innerH);
+      // Boundary lines.
+      ctx.strokeStyle = "#ffb454";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(lx1, innerY); ctx.lineTo(lx1, innerY + innerH);
+      ctx.moveTo(lx2, innerY); ctx.lineTo(lx2, innerY + innerH);
+      ctx.stroke();
+      // Drag handles at top and bottom of each line.
+      ctx.fillStyle = "#ffb454";
+      const hw = 8, hh = 8;
+      [lx1, lx2].forEach(lx => {
+        ctx.fillRect(lx - hw / 2, innerY - 1, hw, hh);
+        ctx.fillRect(lx - hw / 2, innerY + innerH - hh + 1, hw, hh);
+      });
+    }
+
+    // Playhead (recording) or (playback).
+    let playheadTs = null;
+    if (recording) {
+      playheadTs = now;
+    } else if (playing) {
+      const elapsedMs = (audioCtx.currentTime - playbackStartAudio) * 1000;
+      const loopDurMs = Math.max(50, loopEndMs - loopStartMs);
+      const positionMs = loopToggleEl.checked
+        ? loopStartMs + (elapsedMs % loopDurMs)
+        : loopStartMs + elapsedMs;
+      playheadTs = tStart + positionMs;
+    }
+    if (playheadTs != null) {
+      const x = tsToX(playheadTs);
+      if (x >= innerX && x <= innerX + innerW) {
+        ctx.strokeStyle = playing ? "#7bd88f" : "#ffb454";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, innerY);
+        ctx.lineTo(x, innerY + innerH);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // ======================================================================
+  // Bass synth + playback
+  // ======================================================================
+  // Schedule a single bass note on the audio clock: sawtooth → lowpass with
+  // envelope modulation → amp ADSR. Simple and bass-ish.
+  function scheduleSynthNote(midi, startTime, durationSec) {
+    if (!audioCtx) return;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+
+    const osc = audioCtx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+
+    const subOsc = audioCtx.createOscillator();
+    subOsc.type = "sine";
+    subOsc.frequency.value = freq / 2;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.Q.value = 6;
+    // Filter envelope: opens on attack, closes during note.
+    const baseCutoff = 180;
+    const peakCutoff = Math.min(2400, freq * 6 + 400);
+    filter.frequency.setValueAtTime(baseCutoff, startTime);
+    filter.frequency.linearRampToValueAtTime(peakCutoff, startTime + 0.015);
+    filter.frequency.exponentialRampToValueAtTime(
+      Math.max(baseCutoff, freq * 2), startTime + Math.min(0.25, durationSec));
+
+    const amp = audioCtx.createGain();
+    const attack  = 0.005;
+    const decay   = 0.12;
+    const sustain = 0.55;
+    const release = 0.12;
+    amp.gain.setValueAtTime(0, startTime);
+    amp.gain.linearRampToValueAtTime(0.55, startTime + attack);
+    amp.gain.linearRampToValueAtTime(sustain * 0.55, startTime + attack + decay);
+    const sustainEnd = Math.max(startTime + attack + decay + 0.01, startTime + durationSec);
+    amp.gain.setValueAtTime(sustain * 0.55, sustainEnd);
+    amp.gain.linearRampToValueAtTime(0, sustainEnd + release);
+
+    const subGain = audioCtx.createGain();
+    subGain.gain.value = 0.35;
+
+    osc.connect(filter);
+    subOsc.connect(subGain);
+    subGain.connect(filter);
+    filter.connect(amp);
+    amp.connect(playbackGain || audioCtx.destination);
+
+    osc.start(startTime);
+    subOsc.start(startTime);
+    osc.stop(sustainEnd + release + 0.05);
+    subOsc.stop(sustainEnd + release + 0.05);
+    playbackOscs.push(osc, subOsc);
+  }
+
+  function startPlayback() {
+    if (!audioCtx || recordedNotes.length === 0) return;
+    if (playing) return;
+
+    const recStart = recordedNotes[0].startTs;
+    const recEnd = recordedNotes[recordedNotes.length - 1].endTs || recStart;
+    const recDurationMs = recEnd - recStart;
+
+    // Use the loop bounds if they describe a non-trivial range; otherwise
+    // play the whole recording.
+    let lo = loopStartMs, hi = loopEndMs;
+    if (hi - lo < 50) { lo = 0; hi = recDurationMs; }
+    if (hi <= lo) return;
+
+    const loopDurSec = (hi - lo) / 1000;
+
+    playing = true;
+    playBtn.textContent = "Stop";
+    playBtn.classList.add("active");
+
+    // Fresh master gain for this playback. All scheduled notes route through
+    // it so Stop can fade them out and kill queued oscillators atomically.
+    if (playbackGain) {
+      try { playbackGain.disconnect(); } catch (e) {}
+    }
+    playbackGain = audioCtx.createGain();
+    playbackGain.gain.value = 1;
+    playbackGain.connect(audioCtx.destination);
+    playbackOscs = [];
+
+    playbackStartAudio = audioCtx.currentTime + 0.05;
+    scheduleOneLoop(playbackStartAudio, recStart, lo, hi);
+
+    if (loopToggleEl.checked) {
+      scheduleNextLoopBoundary(playbackStartAudio + loopDurSec, recStart, lo, hi, loopDurSec);
+    } else {
+      const tailMs = loopDurSec * 1000 + 500;
+      playbackTimer = setTimeout(stopPlayback, tailMs);
+    }
+  }
+
+  function scheduleOneLoop(baseTime, recStart, loopLoMs, loopHiMs) {
+    const loopLoTs = recStart + loopLoMs;
+    const loopHiTs = recStart + loopHiMs;
+    for (const n of recordedNotes) {
+      if (n.startTs < loopLoTs || n.startTs >= loopHiTs) continue;
+      const offsetSec = (n.startTs - loopLoTs) / 1000;
+      const noteEndTs = Math.min(n.endTs || (n.startTs + 120), loopHiTs);
+      const durSec = Math.max(0.05, (noteEndTs - n.startTs) / 1000);
+      scheduleSynthNote(n.midi, baseTime + offsetSec, durSec);
+    }
+  }
+
+  function scheduleNextLoopBoundary(nextStart, recStart, loopLoMs, loopHiMs, loopDurSec) {
+    if (!playing) return;
+    const delayMs = Math.max(0, (nextStart - audioCtx.currentTime) * 1000 - 150);
+    playbackTimer = setTimeout(() => {
+      if (!playing) return;
+      scheduleOneLoop(nextStart, recStart, loopLoMs, loopHiMs);
+      scheduleNextLoopBoundary(nextStart + loopDurSec, recStart, loopLoMs, loopHiMs, loopDurSec);
+    }, delayMs);
+  }
+
+  function stopPlayback() {
+    if (!playing) return;
+    playing = false;
+    if (playbackTimer) {
+      clearTimeout(playbackTimer);
+      playbackTimer = null;
+    }
+
+    // Kill any audio that's already queued. Brief gain ramp avoids a click.
+    if (audioCtx && playbackGain) {
+      const now = audioCtx.currentTime;
+      try {
+        playbackGain.gain.cancelScheduledValues(now);
+        playbackGain.gain.setValueAtTime(playbackGain.gain.value, now);
+        playbackGain.gain.linearRampToValueAtTime(0, now + 0.03);
+      } catch (e) { /* ignore */ }
+      const stopTime = now + 0.04;
+      for (const o of playbackOscs) {
+        try { o.stop(stopTime); } catch (e) { /* already stopped */ }
+      }
+      playbackOscs = [];
+      const gainRef = playbackGain;
+      playbackGain = null;
+      setTimeout(() => {
+        try { gainRef.disconnect(); } catch (e) {}
+      }, 80);
+    }
+
+    playBtn.textContent = "Play";
+    playBtn.classList.remove("active");
+  }
+
+  // ======================================================================
+  // Practice session
+  // ======================================================================
+  function startPractice() {
+    if (!running) return;
+    // Today sessions force a short fixed time limit per item; otherwise use
+    // whatever the user has selected in the dropdown.
+    const timeLimitMs = todaySession
+      ? todaySession.itemMs
+      : (parseInt(timeLimitSel.value, 10) || 0);
+    const exerciseType = (activePack && activePack.type) || "pack";
+
+    session = {
+      startTs: performance.now(),
+      exerciseType,
+      packId: activePack ? activePack.id : null,
+      mode: modeSel.value,
+      metronomeOn: !!metronomeOnEl.checked,
+      bpm: clampBpm(parseInt(bpmEl.value, 10)),
+      timeLimitMs,
+      events: [],
+      hits: 0,
+      misses: 0,
+      totalReaction: 0,
+      currentTarget: null,
+      prevMidi: null,
+      hitTargets: [],
+    };
+
+    if (exerciseType === "sequence") {
+      // Sequence drill: each "target" is the whole sequence; one attempt
+      // at a time. Hits/misses are sequence-level.
+      session.expectedNotes = activePack.notes.slice();
+      session.sequenceName = activePack.name;
+      session.root = null;
+      session.scale = null;
+      session.position = null;
+      session.fretMin = 0;
+      session.fretMax = FRET_COUNT;
+      session.packDegrees = null;
+    } else if (exerciseType === "interval") {
+      // Interval drill: store the interval params and a sequential walker
+      // over the starting-MIDI range.
+      session.intervalSemitones = activePack.semitones * (activePack.direction === "down" ? -1 : 1);
+      session.intervalRange = activePack.rootRange.slice();
+      session.intervalName = activePack.name;
+      session.intervalSeqIdx = -1;
+      session.intervalSeqDir = 1;
+      // No scale/position fields — interval drills aren't bound to a key.
+      session.root = null;
+      session.scale = null;
+      session.position = null;
+      session.fretMin = 0;
+      session.fretMax = FRET_COUNT;
+      session.packDegrees = null;
+      session.positions = null;
+      session.seqIdx = -1;
+      session.seqDir = 1;
+    } else {
+      // Standard pack drill: enumerate the position window and pick within it.
+      const positions = enumeratePositions(rootSel.value);
+      const idx = parseInt(positionSel.value, 10) || 0;
+      const pos = positions[idx] || positions[0];
+      const { lo: fretMin, hi: fretMax } = positionWindow(pos.fret, scaleSel.value);
+      session.root = rootSel.value;
+      session.scale = scaleSel.value;
+      session.position = pos;
+      session.fretMin = fretMin;
+      session.fretMax = fretMax;
+      session.packDegrees = activePack && activePack.degrees ? new Set(activePack.degrees) : null;
+      session.positions = null;   // sorted array of { midi, pc, fret, stringIdx }
+      session.seqIdx = -1;
+      session.seqDir = 1;
+    }
+
+    practicing = true;
+
+    runtimeEl.hidden = false;
+    timelineWrap.hidden = false;
+    minimapWrap.hidden = false;
+    summaryEl.hidden = true;
+    // Show the right panel for the active exercise type.
+    if (exerciseType === "sequence") {
+      targetEl.hidden = true;
+      sequencePanelEl.hidden = false;
+    } else {
+      targetEl.hidden = false;
+      sequencePanelEl.hidden = true;
+    }
+    lastSession = null;
+    practiceBtn.textContent = "Stop";
+    practiceBtn.classList.add("active");
+    updateControlsEnabled();
+
+    updateStats();
+    updateCountdown();
+
+    // Prime metronome if needed.
+    if (session.metronomeOn) {
+      metNextBeatTime = audioCtx.currentTime + 0.1;
+      metScheduledBeats = [];
+    }
+
+    pickNextTarget();
+    // Reset debouncer.
+    debStable = null; debCandidate = null; debCount = 0;
+  }
+
+  function clampBpm(n) {
+    if (!Number.isFinite(n)) return 100;
+    return Math.max(40, Math.min(240, n));
+  }
+
+  function stopPractice(reason) {
+    if (!session) {
+      practicing = false;
+      return;
+    }
+    // If the user manually stopped during a Today session, cancel Today.
+    if (reason === "user" && todaySession) {
+      todaySession = null;
+    }
+    const endTs = performance.now();
+    const durationMs = endTs - session.startTs;
+    const total = session.hits + session.misses;
+
+    const summary = {
+      timestamp: Date.now(),
+      root: session.root,
+      scale: session.scale,
+      packId: session.packId,
+      // Stored so future runs can be compared against this one.
+      positionLabel: session.position
+        ? session.position.label + ":" + session.position.fret
+        : null,
+      mode: session.mode,
+      metronomeOn: !!session.metronomeOn,
+      bpm: session.bpm,
+      timeLimitMs: session.timeLimitMs,
+      durationMs,
+      hits: session.hits,
+      misses: session.misses,
+      accuracy: total > 0 ? session.hits / total : 0,
+      avgReactionMs: session.hits > 0 ? session.totalReaction / session.hits : null,
+      reason: reason || "user",
+    };
+
+    // Snapshot the finished session for the minimap post-session view.
+    lastSession = {
+      startTs: session.startTs,
+      endTs,
+      root: session.root,
+      scale: session.scale,
+      timeLimitMs: session.timeLimitMs,
+      events: session.events.slice(),
+      hits: session.hits,
+      misses: session.misses,
+    };
+
+    saveSession(summary);
+    refreshTreeBests();
+    renderHistory();
+    if (summaryTitleEl && activePack) {
+      summaryTitleEl.textContent = "Results · " + activePack.name;
+    }
+    showSummary(summary);
+
+    session = null;
+    practicing = false;
+    runtimeEl.hidden = true;
+    timelineWrap.hidden = true;
+    // Keep minimapWrap visible — it'll render lastSession as the final view.
+    targetEl.classList.remove("hit");
+    sequencePanelEl.classList.remove("hit");
+    sequencePanelEl.hidden = true;
+    targetEl.hidden = false;
+
+    practiceBtn.textContent = "Practice";
+    practiceBtn.classList.remove("active");
+    updateControlsEnabled();
+
+    // Flush any metronome state.
+    metScheduledBeats = [];
+
+    renderFretboard();
+    renderMinimap();
+
+    // Today auto-advance: if we still have items in the queue, briefly show
+    // the per-item summary then load the next one and start it.
+    if (todaySession) {
+      todaySession.results.push({
+        packId: summary.packId,
+        avgReactionMs: summary.avgReactionMs,
+        accuracy: summary.accuracy,
+      });
+      if (todaySession.queueIdx < todaySession.queue.length - 1) {
+        todaySession.queueIdx++;
+        const nextPack = todaySession.queue[todaySession.queueIdx];
+        setTimeout(() => {
+          if (!todaySession) return; // user bailed during the pause
+          summaryEl.hidden = true;
+          selectPack(nextPack);
+          startPractice();
+        }, 1800);
+      } else {
+        // Final item complete — leave the per-item summary visible. The
+        // user can navigate back to Today themselves.
+        if (summaryTitleEl) {
+          summaryTitleEl.textContent = "Today complete · " + (activePack ? activePack.name : "");
+        }
+        todaySession = null;
+      }
+    }
+  }
+
+  // Enumerate every (string, fret) position inside the session's fret
+  // window whose pitch class is in the selected scale. Sorted by MIDI
+  // ascending, de-duplicated by MIDI so the same pitch on multiple strings
+  // appears only once (sequential mode walks unique pitches).
+  function enumerateBandPositions(s) {
+    const rootPc = NOTE_NAMES.indexOf(s.root);
+    const intervals = SCALES[s.scale].intervals;
+    const scalePcs = new Set(intervals.map(i => (rootPc + i) % 12));
+    // Optional pack filter — only target the listed degrees.
+    const packDegrees = s.packDegrees;
+    const out = [];
+    TUNING.forEach((string, si) => {
+      for (let f = s.fretMin; f <= s.fretMax; f++) {
+        const midi = string.midi + f;
+        const pc = ((midi % 12) + 12) % 12;
+        if (!scalePcs.has(pc)) continue;
+        if (packDegrees) {
+          const interval = ((pc - rootPc) + 12) % 12;
+          if (!packDegrees.has(interval)) continue;
+        }
+        out.push({ midi, pc, fret: f, stringIdx: si });
+      }
+    });
+    // For each unique MIDI, keep the position on the lowest string (the
+    // "natural" choice within a box pattern).
+    out.sort((a, b) => a.midi - b.midi || b.stringIdx - a.stringIdx);
+    const seen = new Set();
+    const dedup = [];
+    for (const p of out) {
+      if (seen.has(p.midi)) continue;
+      seen.add(p.midi);
+      dedup.push(p);
+    }
+    return dedup;
+  }
+
+  function pickNextTarget() {
+    if (!session) return;
+    if (session.exerciseType === "interval") {
+      pickNextIntervalTarget();
+      return;
+    }
+    if (session.exerciseType === "sequence") {
+      pickNextSequenceTarget();
+      return;
+    }
+    pickNextBandTarget();
+  }
+
+  function pickNextBandTarget() {
+    const positions = enumerateBandPositions(session);
+    if (positions.length === 0) {
+      session.currentTarget = null;
+      targetNoteEl.textContent = "—";
+      targetIntervalEl.textContent = "no scale notes in band";
+      renderFretboard();
+      return;
+    }
+
+    let pick;
+    if (session.mode === "sequential") {
+      if (session.positions == null) {
+        session.positions = positions;
+        session.seqIdx = 0;
+        session.seqDir = 1;
+      } else {
+        session.seqIdx += session.seqDir;
+        if (session.seqIdx >= session.positions.length) {
+          session.seqDir = -1;
+          session.seqIdx = session.positions.length - 2;
+        } else if (session.seqIdx < 0) {
+          session.seqDir = 1;
+          session.seqIdx = 1;
+        }
+        if (session.seqIdx < 0) session.seqIdx = 0;
+      }
+      pick = session.positions[session.seqIdx];
+    } else {
+      do {
+        pick = positions[Math.floor(Math.random() * positions.length)];
+      } while (positions.length > 1 && pick.midi === session.prevMidi);
+      session.prevMidi = pick.midi;
+    }
+
+    const rootPc = NOTE_NAMES.indexOf(session.root);
+    const interval = ((pick.pc - rootPc) + 12) % 12;
+
+    session.currentTarget = {
+      midi: pick.midi,
+      pc: pick.pc,
+      fret: pick.fret,
+      stringIdx: pick.stringIdx,
+      interval,
+      ts: performance.now(),
+      hitReactionMs: null,
+      wasMissedNote: false,
+    };
+
+    const octave = Math.floor(pick.midi / 12) - 1;
+    targetNoteEl.textContent = NOTE_NAMES[pick.pc] + octave;
+    targetIntervalEl.textContent =
+      INTERVAL_NAMES[interval] + " of " + session.root +
+      " · " + TUNING[pick.stringIdx].name + " fret " + pick.fret;
+    renderFretboard();
+  }
+
+  // Build a sorted list of valid starting MIDIs for the active interval
+  // pack — all integers in rootRange whose +interval still lands in the
+  // playable bass range.
+  function intervalStartingMidis(s) {
+    const out = [];
+    const [lo, hi] = s.intervalRange;
+    for (let m = lo; m <= hi; m++) {
+      const dst = m + s.intervalSemitones;
+      if (dst < 28 || dst > 55) continue; // playable bass range
+      out.push(m);
+    }
+    return out;
+  }
+
+  function pickNextIntervalTarget() {
+    const starts = intervalStartingMidis(session);
+    if (starts.length === 0) {
+      session.currentTarget = null;
+      targetNoteEl.textContent = "—";
+      targetIntervalEl.textContent = "interval out of range";
+      return;
+    }
+
+    let startMidi;
+    if (session.mode === "sequential") {
+      if (session.intervalSeqIdx < 0) {
+        session.intervalSeqIdx = 0;
+        session.intervalSeqDir = 1;
+      } else {
+        session.intervalSeqIdx += session.intervalSeqDir;
+        if (session.intervalSeqIdx >= starts.length) {
+          session.intervalSeqDir = -1;
+          session.intervalSeqIdx = starts.length - 2;
+        } else if (session.intervalSeqIdx < 0) {
+          session.intervalSeqDir = 1;
+          session.intervalSeqIdx = 1;
+        }
+        if (session.intervalSeqIdx < 0) session.intervalSeqIdx = 0;
+      }
+      startMidi = starts[session.intervalSeqIdx];
+    } else {
+      do {
+        startMidi = starts[Math.floor(Math.random() * starts.length)];
+      } while (starts.length > 1 && startMidi === session.prevMidi);
+      session.prevMidi = startMidi;
+    }
+
+    const targetMidi = startMidi + session.intervalSemitones;
+    const startPc = ((startMidi % 12) + 12) % 12;
+    const startOct = Math.floor(startMidi / 12) - 1;
+
+    session.currentTarget = {
+      midi: targetMidi,
+      pc: ((targetMidi % 12) + 12) % 12,
+      startMidi,
+      ts: performance.now(),
+      hitReactionMs: null,
+      wasMissedNote: false,
+    };
+
+    // Show the question only — no destination given.
+    targetNoteEl.textContent = session.intervalName;
+    targetIntervalEl.textContent = "from " + NOTE_NAMES[startPc] + startOct;
+    renderFretboard();
+  }
+
+  // ---- Sequence verification ----
+
+  function pickNextSequenceTarget() {
+    session.currentTarget = {
+      type: "sequence",
+      expectedNotes: session.expectedNotes.slice(),
+      playedNotes: [],
+      ts: performance.now(),
+      startedAt: null,
+      lastEventTs: 0,
+      finalized: false,
+      hitReactionMs: null,
+    };
+    seqNameEl.textContent = session.sequenceName;
+    seqResultEl.textContent = "";
+    seqResultEl.className = "seq-result";
+    sequencePanelEl.classList.remove("hit");
+    renderSequenceProgress();
+  }
+
+  function renderSequenceProgress() {
+    if (!session || !session.currentTarget) return;
+    const t = session.currentTarget;
+    seqProgressEl.innerHTML = "";
+    t.expectedNotes.forEach((expected, i) => {
+      const step = document.createElement("div");
+      step.className = "step";
+      const played = t.playedNotes[i];
+      if (played != null) {
+        step.classList.add("played");
+        step.classList.add(played === expected ? "correct" : "wrong");
+        step.textContent = NOTE_NAMES[((played % 12) + 12) % 12];
+      } else {
+        step.textContent = NOTE_NAMES[((expected % 12) + 12) % 12];
+      }
+      seqProgressEl.appendChild(step);
+    });
+  }
+
+  // Capture a played MIDI into the current sequence attempt. Auto-finalize
+  // when length is reached.
+  function onNoteEventSequence(midi) {
+    const t = session.currentTarget;
+    if (!t || t.finalized) return;
+    const now = performance.now();
+    if (t.playedNotes.length === 0) t.startedAt = now;
+    t.playedNotes.push(midi);
+    t.lastEventTs = now;
+    renderSequenceProgress();
+    if (t.playedNotes.length >= t.expectedNotes.length) {
+      finalizeSequenceAttempt();
+    }
+  }
+
+  function compareSequence(played, expected) {
+    let exact = played.length === expected.length;
+    if (exact) {
+      for (let i = 0; i < played.length; i++) {
+        if (played[i] !== expected[i]) { exact = false; break; }
+      }
+    }
+    let firstWrong = -1;
+    for (let i = 0; i < Math.min(played.length, expected.length); i++) {
+      if (played[i] !== expected[i]) { firstWrong = i; break; }
+    }
+    return { perfect: exact, firstWrong, played, expected };
+  }
+
+  function finalizeSequenceAttempt() {
+    if (!session || !session.currentTarget) return;
+    const t = session.currentTarget;
+    if (t.finalized) return;
+    t.finalized = true;
+
+    const result = compareSequence(t.playedNotes, t.expectedNotes);
+    const reactionMs = (t.startedAt != null) ? (performance.now() - t.startedAt) : 0;
+
+    if (result.perfect) {
+      session.events.push({ ts: performance.now(), type: "hit", reactionMs });
+      session.hits++;
+      session.totalReaction += reactionMs;
+      sequencePanelEl.classList.add("hit");
+      seqResultEl.textContent = "Perfect · " + Math.round(reactionMs) + " ms";
+      seqResultEl.className = "seq-result perfect";
+    } else {
+      session.events.push({ ts: performance.now(), type: "miss" });
+      session.misses++;
+      let msg;
+      if (t.playedNotes.length < t.expectedNotes.length) {
+        msg = "Stopped after " + t.playedNotes.length + " of " + t.expectedNotes.length + " notes";
+      } else if (t.playedNotes.length > t.expectedNotes.length) {
+        msg = "Played " + (t.playedNotes.length - t.expectedNotes.length) + " extra";
+      } else if (result.firstWrong >= 0) {
+        const expectedName = NOTE_NAMES[((t.expectedNotes[result.firstWrong] % 12) + 12) % 12];
+        const playedName = NOTE_NAMES[((t.playedNotes[result.firstWrong] % 12) + 12) % 12];
+        msg = "Wrong at step " + (result.firstWrong + 1) + ": " + playedName + " (wanted " + expectedName + ")";
+      } else {
+        msg = "Try again";
+      }
+      seqResultEl.textContent = msg;
+      seqResultEl.className = "seq-result fail";
+    }
+
+    updateStats();
+    renderSequenceProgress();
+
+    // Auto-prep next attempt after a brief pause so the user can read the result.
+    setTimeout(() => {
+      if (!practicing || !session || session.exerciseType !== "sequence") return;
+      pickNextSequenceTarget();
+    }, 1500);
+  }
+
+  function onNoteEvent(midi) {
+    if (!session || !session.currentTarget) return;
+    if (session.exerciseType === "sequence") {
+      onNoteEventSequence(midi);
+      return;
+    }
+    const t = session.currentTarget;
+    const now = performance.now();
+    const match = midi === t.midi;
+
+    if (session.metronomeOn) {
+      // Beat-driven mode: we don't advance here. We just note whether the
+      // player has hit the target during this beat. The beat handler later
+      // promotes the note to hit/miss and advances.
+      if (match && t.hitReactionMs == null) {
+        t.hitReactionMs = now - t.ts;
+      }
+      // Wrong notes in metronome mode are ignored (the beat is the scoring
+      // unit). Could be tracked separately if we want richer stats.
+    } else {
+      if (match) {
+        const reactionMs = now - t.ts;
+        session.events.push({ ts: now, type: "hit", midi, reactionMs });
+        session.hitTargets.push({ ts: t.ts, pc: t.pc });
+        session.hits++;
+        session.totalReaction += reactionMs;
+        updateStats();
+        flashHit();
+        pickNextTarget();
+      } else {
+        session.events.push({ ts: now, type: "miss", midi });
+        session.misses++;
+        updateStats();
+      }
+    }
+  }
+
+  // Called when the metronome crosses a beat boundary. Finalizes the current
+  // target as hit or miss, then picks the next.
+  function onBeat(beatPerfTime) {
+    if (!session || !session.currentTarget) return;
+    const t = session.currentTarget;
+    if (t.hitReactionMs != null) {
+      const hitTs = t.ts + t.hitReactionMs;
+      session.events.push({ ts: hitTs, type: "hit", midi: t.midi, reactionMs: t.hitReactionMs });
+      session.hitTargets.push({ ts: t.ts, pc: t.pc });
+      session.hits++;
+      session.totalReaction += t.hitReactionMs;
+      flashHit();
+    } else {
+      session.events.push({ ts: beatPerfTime, type: "miss", midi: t.midi });
+      session.misses++;
+    }
+    updateStats();
+    pickNextTarget();
+  }
+
+  function updateStats() {
+    if (!session) return;
+    statHitsEl.textContent = session.hits;
+    statMissesEl.textContent = session.misses;
+    statAvgEl.textContent = session.hits > 0
+      ? Math.round(session.totalReaction / session.hits)
+      : "—";
+  }
+
+  function updateCountdown() {
+    if (!session) return;
+    if (session.timeLimitMs === 0) {
+      countdownEl.textContent = "∞";
+      countdownEl.className = "countdown none";
+      return;
+    }
+    const remaining = Math.max(0, session.timeLimitMs - (performance.now() - session.startTs));
+    const totalSec = Math.ceil(remaining / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    countdownEl.textContent = `${m}:${String(s).padStart(2, "0")}`;
+    countdownEl.className = "countdown" + (remaining <= 5000 ? " urgent" : "");
+    if (remaining <= 0) {
+      stopPractice("time");
+    }
+  }
+
+  function flashHit() {
+    targetEl.classList.add("hit");
+    setTimeout(() => targetEl.classList.remove("hit"), 180);
+  }
+
+  // ======================================================================
+  // Summary + history
+  // ======================================================================
+  function showSummary(s) {
+    summaryGridEl.innerHTML = "";
+    const itemLabel = s.scale && s.root
+      ? s.scale + " · " + s.root
+      : (activePack ? activePack.name : "—");
+    const cells = [
+      { v: s.hits, l: "hits" },
+      { v: s.misses, l: "misses" },
+      { v: Math.round(s.accuracy * 100) + "%", l: "accuracy" },
+      { v: s.avgReactionMs != null ? Math.round(s.avgReactionMs) + " ms" : "—", l: "avg time" },
+      { v: formatDuration(s.durationMs), l: "duration" },
+      { v: itemLabel, l: "item" },
+    ];
+    cells.forEach(c => {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const v = document.createElement("div");
+      v.className = "v"; v.textContent = c.v;
+      const l = document.createElement("div");
+      l.className = "l"; l.textContent = c.l;
+      cell.appendChild(v);
+      cell.appendChild(l);
+      summaryGridEl.appendChild(cell);
+    });
+    summaryEl.hidden = false;
+    renderProgressChart(s);
+  }
+
+  // Sessions are comparable if they share the same packId AND mode (since
+  // random vs sequential is a meaningfully different drill). For older
+  // sessions without packId, fall back to the looser (root, scale, position)
+  // match.
+  function findComparableSessions(s) {
+    if (!s) return [];
+    const sessions = loadSessions();
+    if (s.packId) {
+      return sessions.filter(x => x.packId === s.packId && x.mode === s.mode);
+    }
+    return sessions.filter(x =>
+      x.root === s.root && x.scale === s.scale &&
+      x.positionLabel === s.positionLabel && x.mode === s.mode
+    );
+  }
+
+  function renderProgressChart(currentSummary) {
+    if (!progressCtx) return;
+
+    const all = findComparableSessions(currentSummary);
+    // We need at least 2 data points (one of which is the current session)
+    // to draw a meaningful trend.
+    const withReaction = all
+      .filter(s => s.avgReactionMs != null)
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    if (withReaction.length < 2) {
+      progressEl.hidden = true;
+      return;
+    }
+
+    progressEl.hidden = false;
+
+    // Header label.
+    const headerLabel = currentSummary.scale && currentSummary.root
+      ? currentSummary.scale + " · " + currentSummary.root
+      : (activePack ? activePack.name : "—");
+    progressConfigEl.textContent = [
+      headerLabel,
+      currentSummary.positionLabel || (activePack && activePack.type === "interval" ? "interval" : "no position"),
+      currentSummary.mode || "random",
+    ].join(" · ");
+
+    const ctx = progressCtx;
+    const W = PROGRESS_W, H = PROGRESS_H;
+    const padX = 14, padY = 12;
+    const innerW = W - padX * 2;
+    const innerH = H - padY * 2;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#15151a";
+    ctx.fillRect(0, 0, W, H);
+
+    const points = withReaction.map(s => s.avgReactionMs);
+    const minVal = Math.min(...points);
+    const maxVal = Math.max(...points);
+    const range = Math.max(1, maxVal - minVal);
+    // Inverted Y so faster (lower) reaction sits at the BOTTOM of the chart
+    // and the line slopes downward as you improve — visually intuitive.
+    const xStep = points.length > 1 ? innerW / (points.length - 1) : 0;
+    const yFor = v => padY + innerH - ((v - minVal) / range) * innerH;
+    const xFor = i => padX + i * xStep;
+
+    // Faint baselines at min and max.
+    ctx.strokeStyle = "#2c2c32";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    [yFor(minVal), yFor(maxVal)].forEach(y => {
+      ctx.beginPath();
+      ctx.moveTo(padX, y);
+      ctx.lineTo(W - padX, y);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Min/max numeric labels.
+    ctx.fillStyle = "#666";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(Math.round(minVal) + " ms", 4, yFor(minVal));
+    ctx.fillText(Math.round(maxVal) + " ms", 4, yFor(maxVal));
+
+    // Line.
+    ctx.strokeStyle = "#ffb454";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    points.forEach((v, i) => {
+      const x = xFor(i), y = yFor(v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Dots — current session highlighted.
+    points.forEach((v, i) => {
+      const x = xFor(i), y = yFor(v);
+      const isCurrent = i === points.length - 1;
+      ctx.fillStyle = isCurrent ? "#ffb454" : "#7a5a2c";
+      ctx.beginPath();
+      ctx.arc(x, y, isCurrent ? 4.5 : 3, 0, Math.PI * 2);
+      ctx.fill();
+      if (isCurrent) {
+        ctx.strokeStyle = "#0e0e10";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    });
+
+    // Trend annotation: compare current to mean of previous N.
+    const current = points[points.length - 1];
+    const baselineCount = Math.min(PROGRESS_TREND_WINDOW, points.length - 1);
+    const baselineSlice = points.slice(-1 - baselineCount, -1);
+    const baseline = baselineSlice.reduce((a, b) => a + b, 0) / baselineSlice.length;
+    const delta = current - baseline;
+
+    let trendHTML;
+    if (Math.abs(delta) < 5) {
+      trendHTML = '<span>≈</span> on par with recent average';
+    } else if (delta < 0) {
+      trendHTML = '<span class="down">↓ ' + Math.round(-delta) +
+        ' ms</span> faster than your last ' + baselineCount + ' sessions';
+    } else {
+      trendHTML = '<span class="up">↑ ' + Math.round(delta) +
+        ' ms</span> slower than your last ' + baselineCount + ' sessions';
+    }
+    progressTextEl.innerHTML = points.length + " sessions at this configuration · " + trendHTML;
+  }
+
+  function formatDuration(ms) {
+    const s = Math.round(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  }
+
+  function loadSessions() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch (e) { return []; }
+  }
+
+  function saveSession(summary) {
+    try {
+      const all = loadSessions();
+      all.push(summary);
+      if (all.length > MAX_STORED_SESSIONS) {
+        all.splice(0, all.length - MAX_STORED_SESSIONS);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    } catch (e) {
+      // ignore — private mode / disabled storage
+    }
+  }
+
+  function renderHistory() {
+    // History panel is per-item: only show sessions matching the active pack.
+    historyListEl.innerHTML = "";
+    if (!activePack) {
+      const empty = document.createElement("div");
+      empty.className = "history-empty";
+      empty.textContent = "Pick an item to see its history.";
+      historyListEl.appendChild(empty);
+      return;
+    }
+    const all = loadSessions()
+      .filter(s => s.packId === activePack.id)
+      .slice()
+      .reverse(); // newest first
+    if (all.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "history-empty";
+      empty.textContent = "No sessions yet for this item.";
+      historyListEl.appendChild(empty);
+      return;
+    }
+    const head = document.createElement("div");
+    head.className = "history-row head";
+    ["When", "Mode", "Acc", "Avg", "H/M"].forEach(s => {
+      const c = document.createElement("div"); c.textContent = s;
+      head.appendChild(c);
+    });
+    historyListEl.appendChild(head);
+
+    all.slice(0, 25).forEach(s => {
+      const row = document.createElement("div");
+      row.className = "history-row";
+      const cells = [
+        formatWhen(s.timestamp),
+        s.mode || "—",
+        Math.round(s.accuracy * 100) + "%",
+        s.avgReactionMs != null ? Math.round(s.avgReactionMs) + " ms" : "—",
+        s.hits + "/" + s.misses,
+      ];
+      cells.forEach(txt => {
+        const c = document.createElement("div"); c.textContent = txt;
+        row.appendChild(c);
+      });
+      historyListEl.appendChild(row);
+    });
+  }
+
+  function formatWhen(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    if (sameDay) return `${hh}:${mm}`;
+    return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+  }
+
+  // ======================================================================
+  // Tuner display
+  // ======================================================================
+  function updateTunerDisplay(name, octave, cents, freq) {
+    noteEl.innerHTML = `${name}<span class="octave">${octave}</span>`;
+    freqEl.textContent = `${freq.toFixed(2)} Hz`;
+    centsEl.textContent = `${cents >= 0 ? "+" : ""}${cents} cents`;
+    const pct = Math.max(0, Math.min(100, 50 + cents));
+    needleEl.style.left = pct + "%";
+    meterEl.classList.toggle("in-tune", Math.abs(cents) < 5);
+  }
+
+  function clearTunerDisplay() {
+    noteEl.textContent = "—";
+    freqEl.innerHTML = "&nbsp;";
+    centsEl.innerHTML = "&nbsp;";
+    needleEl.style.left = "50%";
+    meterEl.classList.remove("in-tune");
+  }
+
+  // ======================================================================
+  // Main audio loop
+  // ======================================================================
   function loop() {
     if (!running) return;
     analyser.getFloatTimeDomainData(buf);
     const freq = autoCorrelate(buf, audioCtx.sampleRate);
 
+    let detectedMidi = null;
     if (freq > 30 && freq < 1000) {
       const { name, octave, cents, midi } = freqToNote(freq);
-      noteEl.innerHTML = `${name}<span class="octave">${octave}</span>`;
-      freqEl.textContent = `${freq.toFixed(2)} Hz`;
-      centsEl.textContent = `${cents >= 0 ? "+" : ""}${cents} cents`;
-      // Map -50..+50 cents onto 0..100% of meter width.
-      const pct = Math.max(0, Math.min(100, 50 + cents));
-      needleEl.style.left = pct + "%";
-      meterEl.classList.toggle("in-tune", Math.abs(cents) < 5);
-      lastNoteTs = performance.now();
+      detectedMidi = midi;
+      updateTunerDisplay(name, octave, cents, freq);
       updatePlayingHighlight(midi);
+      lastNoteTs = performance.now();
+    } else if (performance.now() - lastNoteTs > 400) {
+      clearTunerDisplay();
+      updatePlayingHighlight(null);
+    }
 
-      // Practice match check — pitch-class match, any octave.
-      if (practicing && targetPc !== null) {
-        const playedPc = ((midi % 12) + 12) % 12;
-        if (playedPc === targetPc) {
-          if (!matchStartTs) matchStartTs = performance.now();
-          if (performance.now() - matchStartTs >= HOLD_MS) {
-            flashHit();
-            matchStartTs = 0;
-            pickNextTarget();
-          }
-        } else {
-          matchStartTs = 0;
+    // Debounce detected pitches into discrete note events.
+    const newNote = debounceNote(detectedMidi);
+    if (newNote !== null && practicing) {
+      onNoteEvent(newNote);
+    }
+
+    // Recording runs independently of practice — captures every stable note.
+    if (recording) pumpRecording();
+    if (recording || playing) renderPianoRoll();
+
+    if (practicing) {
+      updateCountdown();
+      renderTimeline();
+      renderMinimap();
+      // Sequence drills auto-finalize after 1.5s of silence following at
+      // least one played note. (Length-reached finalization happens inline.)
+      if (session && session.exerciseType === "sequence" && session.currentTarget) {
+        const t = session.currentTarget;
+        if (!t.finalized && t.playedNotes.length > 0
+            && performance.now() - t.lastEventTs > 1500) {
+          finalizeSequenceAttempt();
         }
       }
-    } else if (performance.now() - lastNoteTs > 400) {
-      // Decay display after 400ms of silence.
-      noteEl.textContent = "—";
-      freqEl.innerHTML = "&nbsp;";
-      centsEl.innerHTML = "&nbsp;";
-      needleEl.style.left = "50%";
-      meterEl.classList.remove("in-tune");
-      updatePlayingHighlight(null);
+    }
+
+    // Metronome: practice wins if both practice and record have it on.
+    if (practicing && session && session.metronomeOn) {
+      pumpMetronome(session.bpm, true);
+    } else if (recording && recMetOnEl.checked) {
+      pumpMetronome(clampBpm(parseInt(recBpmEl.value, 10)), false);
     }
 
     rafId = requestAnimationFrame(loop);
   }
 
-  startBtn.addEventListener("click", start);
+  // ======================================================================
+  // Event listeners
+  // ======================================================================
+  startBtn.addEventListener("click", startAudio);
+  changeInputBtn.addEventListener("click", stopAudio);
+
   practiceBtn.addEventListener("click", () => {
-    if (practicing) stopPractice(); else startPractice();
+    if (practicing) stopPractice("user");
+    else startPractice();
   });
-  fretboardBtn.addEventListener("click", toggleFretboard);
+
+  todayStartBtn.addEventListener("click", () => {
+    if (todayPreviewQueue.length === 0) return;
+    todaySession = {
+      queue: todayPreviewQueue.slice(),
+      queueIdx: 0,
+      itemMs: TODAY_ITEM_MS,
+      results: [],
+    };
+    showMainView("practice-view");
+    selectPack(todaySession.queue[0]);
+    startPractice();
+  });
+  todayShuffleBtn.addEventListener("click", renderTodayView);
+
+  sidebarToggleBtn.addEventListener("click", () => {
+    practiceSidebar.classList.add("collapsed");
+    sidebarShowBtn.hidden = false;
+  });
+  sidebarShowBtn.addEventListener("click", () => {
+    practiceSidebar.classList.remove("collapsed");
+    sidebarShowBtn.hidden = true;
+  });
+
+  practiceAgainBtn.addEventListener("click", () => {
+    summaryEl.hidden = true;
+    if (activePack) selectPack(activePack);
+  });
+  backToListBtn.addEventListener("click", () => {
+    summaryEl.hidden = true;
+    itemPane.hidden = true;
+    practiceEmpty.hidden = false;
+    activePack = null;
+    practiceTree.querySelectorAll(".tree-item.active").forEach(li => li.classList.remove("active"));
+  });
+
+  rootSel.addEventListener("change", () => {
+    populatePositionDropdown();
+    renderFretboard();
+  });
+  scaleSel.addEventListener("change", () => {
+    populatePositionDropdown();
+    renderFretboard();
+  });
+  positionSel.addEventListener("change", () => { renderFretboard(); });
+
+  recordBtn.addEventListener("click", () => {
+    if (recording) stopRecording();
+    else startRecording();
+  });
+  playBtn.addEventListener("click", () => {
+    if (playing) stopPlayback();
+    else startPlayback();
+  });
+  clearRecBtn.addEventListener("click", clearRecording);
+  savedRecSel.addEventListener("change", () => {
+    if (savedRecSel.value) loadRecordingById(savedRecSel.value);
+  });
+  deleteRecBtn.addEventListener("click", deleteCurrentSavedRecording);
+
   highlightToggle.addEventListener("change", () => {
     showHighlight = highlightToggle.checked;
     renderFretboard();
   });
   playingToggle.addEventListener("change", () => {
     showPlayingNote = playingToggle.checked;
-    // Force the next updatePlayingHighlight call to actually redraw.
     const held = lastPlayedMidi;
     lastPlayedMidi = null;
     updatePlayingHighlight(showPlayingNote ? held : null);
   });
-  // Re-pick / re-render when root or scale changes. If practicing,
-  // pickNextTarget handles both. Otherwise just redraw the fretboard.
-  rootSel.addEventListener("change", () => {
-    if (practicing) pickNextTarget(); else renderFretboard();
-  });
-  scaleSel.addEventListener("change", () => {
-    if (practicing) pickNextTarget(); else renderFretboard();
-  });
+
   navigator.mediaDevices.addEventListener?.("devicechange", listDevices);
+
+  // ======================================================================
+  // Init
+  // ======================================================================
   listDevices();
+  setupTimelineCanvas();
+  setupMinimapCanvas();
+  setupPianoRollCanvas();
+  setupProgressCanvas();
+  buildPracticeTree();
+  refreshTreeBests();
+  renderTodayView();
+  // The shared fretboard starts inside the practice view's slot.
+  practiceFretboardSlot.appendChild(fretboardWrap);
   renderFretboard();
+  renderPianoRoll();
+  renderHistory();
+  updateRecInfo();
+  populateRecordingsDropdown();
 })();
 </script>
 </body>
